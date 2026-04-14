@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifikasi Permintaan Dokumen (Approval)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            border: 2em solid rgb(128, 124, 124);
+            padding: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .header h3 {
+            margin: 0;
+            color: #333;
+        }
+        .divider {
+            border-top: 5px solid rgb(128, 124, 124);
+            margin: 25px 0;
+        }
+        .recipient {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .info-table {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .info-table td {
+            padding: 5px 0;
+            vertical-align: top;
+        }
+        .info-table td:first-child {
+            width: 200px;
+            font-weight: bold;
+        }
+        .info-table td:nth-child(2) {
+            width: 10px;
+            text-align: center;
+        }
+        .content {
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        .approval-link {
+            display: inline-block;
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .approval-link:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h3>DMS COMPLIANCE</h3>
+            <img width="80" src="cid:dbc" alt="DBC Logo" style="float: right;">
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div class="recipient">
+            Kepada <%= approver_nama %>
+        </div>
+        
+        <table class="info-table">
+            <tr>
+                <td>Nama Arsip</td>
+                <td>:</td>
+                <td><%= nama_dokumen %></td>
+            </tr>
+            <% if (nomor_dokumen) { %>
+            <tr>
+                <td>Nomor Dokumen</td>
+                <td>:</td>
+                <td><%= nomor_dokumen %></td>
+            </tr>
+            <% } %>
+            <tr>
+                <td>Kode Arsip</td>
+                <td>:</td>
+                <td><%= nomor_arsip %></td>
+            </tr>
+            <tr>
+                <td>Status Dokumen</td>
+                <td>:</td>
+                <td><%= kategori_keamanan %></td>
+            </tr>
+            <tr>
+                <td>Jenis Dokumen</td>
+                <td>:</td>
+                <td><%= pinjam_aktivitas %></td>
+            </tr>
+            <tr>
+                <td>Kategori Dokumen</td>
+                <td>:</td>
+                <td><%= arsip_kat %></td>
+            </tr>
+            <tr>
+                <td>Tanggal Unggah Dokumen</td>
+                <td>:</td>
+                <td><%= tgl_doc %></td>
+            </tr>
+            <% if (pinjam_aktivitas !== 'Pinjam Asli') { %>
+            <tr>
+                <td>No. Tiket</td>
+                <td>:</td>
+                <td><%= nomor_tiket %></td>
+            </tr>
+            <tr>
+                <td>Tanggal Pengambilan Dokumen</td>
+                <td>:</td>
+                <td><%= tgl_pengambilan %></td>
+            </tr>
+            <tr>
+                <td>Keterangan</td>
+                <td>:</td>
+                <td><%= notes %></td>
+            </tr>
+            <% } %>
+        </table>
+        
+        <div class="content">
+            Email ini sebagai pemberitahuan permintaan dokumen <strong><%= pinjam_aktivitas %></strong> oleh <%= nama %>, <%= nik %>, <%= div_nama %>.
+            <br><br>
+            Setelah melakukan review atas pengajuan permintaan dokumen <%= pinjam_aktivitas %>, silahkan dilanjutkan untuk memberikan persetujuan atas pengajuan permintaan untuk Divisi <%= div_nama %> di DMS Compliance dengan klik link di bawah ini.
+            <br><br>
+            <a href="<%= approval_link %>" class="approval-link" target="_blank">
+                Klik untuk Approval
+            </a>
+        </div>
+    </div>
+</body>
+</html>

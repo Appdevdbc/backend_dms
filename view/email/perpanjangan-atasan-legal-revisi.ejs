@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;font-size:13px;color:#333}.header{background:#E65100;color:#fff;padding:16px 24px}.content{padding:24px}.label{color:#666;font-size:12px}.value{font-weight:bold;margin-bottom:8px}.footer{background:#f5f5f5;padding:12px 24px;font-size:11px;color:#888}</style></head>
+<body>
+<div class="header"><h2 style="margin:0">NOTIFIKASI PERPANJANGAN DOKUMEN (REVISI)</h2></div>
+<div class="content">
+  <p>Yth. <strong><%= legal_nama %></strong> (Corp Legal SH),</p>
+  <p>Atasan Legal (DH) meminta <strong>revisi</strong> atas persetujuan perpanjangan dokumen berikut.</p>
+  <table style="width:100%;border-collapse:collapse;margin-top:12px">
+    <tr><td class="label" style="width:200px">Nomor Tiket</td><td class="value">: <%= no_tiket %></td></tr>
+    <tr><td class="label">Nama Dokumen</td><td class="value">: <%= nama_doc %></td></tr>
+    <tr><td class="label">Alasan Revisi</td><td class="value">: <%= alasan_revisi %></td></tr>
+    <tr><td class="label">Catatan Atasan Legal</td><td class="value">: <%= catatan_atasan %></td></tr>
+  </table>
+  <p style="margin-top:16px">Silakan login ke sistem untuk melakukan revisi approval.</p>
+</div>
+<div class="footer">Email ini dikirim otomatis oleh sistem. Mohon tidak membalas email ini.</div>
+</body></html>

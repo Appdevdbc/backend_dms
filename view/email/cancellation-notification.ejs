@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+    .container {
+      width: 100%;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #ffffff;
+    }
+    .header {
+      border-bottom: 5px solid #808080;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .header h3 {
+      margin: 0;
+      float: left;
+      color: #333333;
+    }
+    .logo {
+      float: right;
+      width: 80px;
+    }
+    .content {
+      clear: both;
+      padding: 20px 0;
+    }
+    .greeting {
+      margin-bottom: 20px;
+      color: #333333;
+    }
+    .details-table {
+      width: 100%;
+      margin: 20px 0;
+      border-collapse: collapse;
+    }
+    .details-table td {
+      padding: 8px 5px;
+      color: #333333;
+      vertical-align: top;
+    }
+    .details-table td:first-child {
+      width: 40%;
+      font-weight: normal;
+    }
+    .details-table td:nth-child(2) {
+      width: 5%;
+    }
+    .details-table td:last-child {
+      width: 55%;
+    }
+    .reason {
+      margin: 20px 0;
+      padding: 15px;
+      background-color: #fff3cd;
+      border-left: 4px solid #ffc107;
+      color: #856404;
+    }
+    .reason strong {
+      color: #856404;
+    }
+    .footer {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #e0e0e0;
+      color: #666666;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h3>DMS COMPLIANCE</h3>
+      <img src="cid:dbc" class="logo" alt="DBC Logo">
+    </div>
+    
+    <div class="content">
+      <div class="greeting">
+        <p>Kepada PIC yang Berkepentingan,</p>
+      </div>
+      
+      <p>Dengan ini kami informasikan bahwa nomor dokumen perjanjian berikut telah dibatalkan:</p>
+      
+      <table class="details-table">
+        <tr>
+          <td>Nomor Dokumen Perjanjian</td>
+          <td>:</td>
+          <td><strong><%= doc_id %></strong></td>
+        </tr>
+        <tr>
+          <td>Tanggal Pengambilan Nomor Perjanjian</td>
+          <td>:</td>
+          <td><%= created_date %></td>
+        </tr>
+        <tr>
+          <td>Judul Perjanjian</td>
+          <td>:</td>
+          <td><%= doc_judul %></td>
+        </tr>
+        <tr>
+          <td>PIC Pengambilan Nomor</td>
+          <td>:</td>
+          <td><%= account_name %></td>
+        </tr>
+      </table>
+      
+      <div class="reason">
+        <p><strong>Alasan Pembatalan:</strong></p>
+        <p><%= doc_alasan_batal %></p>
+      </div>
+      
+      <p>Jika Anda memiliki pertanyaan terkait pembatalan ini, silakan hubungi tim Corporate Legal Compliance.</p>
+      
+      <p>Terima kasih atas perhatian Anda.</p>
+    </div>
+    
+    <div class="footer">
+      <p>Email ini dikirim secara otomatis oleh sistem DMS Corporate Legal Compliance.</p>
+      <p>Mohon tidak membalas email ini.</p>
+    </div>
+  </div>
+</body>
+</html>

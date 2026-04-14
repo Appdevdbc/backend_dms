@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+    .container { max-width: 600px; margin: 0 auto; background-color: white; border: 2em solid rgb(128, 124, 124); padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .header h3 { margin: 0; color: #333; }
+    .divider { border-top: 5px solid rgb(128, 124, 124); margin: 25px 0; }
+    .recipient { font-size: 1.2em; font-weight: bold; margin-bottom: 20px; }
+    .info-table { width: 100%; margin-bottom: 20px; }
+    .info-table td { padding: 5px 0; vertical-align: top; }
+    .info-table td:first-child { width: 200px; }
+    .info-table td:nth-child(2) { width: 10px; text-align: center; }
+    .content { line-height: 1.6; margin-bottom: 20px; }
+    .approval-link { display: inline-block; background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 20px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h3>DMS COMPLIANCE</h3>
+      <img width="80" src="cid:dbc" alt="DBC Logo" style="float:right;">
+    </div>
+    <div class="divider"></div>
+    <div class="recipient">Kepada <%= approverName %></div>
+
+    <table class="info-table">
+      <tr><td>Nomor Tiket HDS Legal</td><td>:</td><td><%= spkNumber %></td></tr>
+      <tr><td>Judul Perjanjian</td><td>:</td><td><%= title %></td></tr>
+      <tr><td>Jenis Perjanjian</td><td>:</td><td><%= type %></td></tr>
+      <tr><td>Nama Pemohon</td><td>:</td><td><%= requester %></td></tr>
+      <tr><td>Business Unit</td><td>:</td><td><%= bu %></td></tr>
+      <tr><td>Divisi</td><td>:</td><td><%= division %></td></tr>
+    </table>
+
+    <div class="content">
+      Harap untuk melakukan review atas pengajuan Nomor Perjanjian oleh Pemohon sebagaimana keterangan di atas, dengan klik link di bawah ini.
+      <br><br>
+      <a href="<%= approvalLink %>" class="approval-link" target="_blank">Klik untuk Approval</a>
+    </div>
+  </div>
+</body>
+</html>

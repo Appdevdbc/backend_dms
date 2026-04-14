@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;font-size:13px;color:#333}.header{background:#4527A0;color:#fff;padding:16px 24px}.content{padding:24px}.label{color:#666;font-size:12px}.value{font-weight:bold;margin-bottom:8px}.footer{background:#f5f5f5;padding:12px 24px;font-size:11px;color:#888}</style></head>
+<body>
+<div class="header"><h2 style="margin:0">NOTIFIKASI PERPANJANGAN DOKUMEN (APPROVE)</h2></div>
+<div class="content">
+  <p>Yth. <strong><%= atasan_legal_nama %></strong> (Atasan Legal / DH),</p>
+  <p>Terdapat pengajuan perpanjangan dokumen yang telah disetujui Corp Legal SH dan memerlukan persetujuan Anda.</p>
+  <table style="width:100%;border-collapse:collapse;margin-top:12px">
+    <tr><td class="label" style="width:200px">Nomor Tiket</td><td class="value">: <%= no_tiket %></td></tr>
+    <tr><td class="label">Nama Dokumen</td><td class="value">: <%= nama_doc %></td></tr>
+    <tr><td class="label">Catatan Corp Legal SH</td><td class="value">: <%= catatan_legal %></td></tr>
+    <tr><td class="label">Tgl Mulai Perpanjangan</td><td class="value">: <%= perpanjang_mulai_tgl %></td></tr>
+    <tr><td class="label">Tgl Sampai Perpanjangan</td><td class="value">: <%= perpanjang_sampai_tgl %></td></tr>
+  </table>
+  <p style="margin-top:16px">Silakan login ke sistem untuk melakukan approval.</p>
+</div>
+<div class="footer">Email ini dikirim otomatis oleh sistem. Mohon tidak membalas email ini.</div>
+</body></html>

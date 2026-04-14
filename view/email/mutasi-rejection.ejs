@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Penolakan Mutasi Dokumen</title>
+</head>
+<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f5f5f5;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#f5f5f5;padding:20px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;background-color:#ffffff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);overflow:hidden;">
+          <tr>
+            <td style="background:linear-gradient(135deg, #dc2626 0%, #f87171 100%);padding:30px;text-align:center;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td style="text-align:left;">
+                      <h3 style="margin:0 0 10px 0;font-size:24px;font-weight:700;">DMS COMPLIANCE</h3>
+                      <p style="margin:0;font-size:14px;opacity:0.9;">Penolakan Mutasi Dokumen</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:40px 30px;">
+              <h2 style="margin:0 0 20px 0;color:#1f2937;font-size:20px;font-weight:600;">Kepada <%= recipient_name %></h2>
+              <p style="margin:0 0 25px 0;color:#4b5563;font-size:15px;line-height:1.6;">Email ini sebagai pemberitahuan penolakan pengajuan mutasi dokumen.</p>
+              <div style="background:linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);border-left:4px solid #dc2626;border-radius:6px;padding:20px;margin-bottom:25px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size:14px;color:#374151;">
+                  <tr><td style="padding:8px 0;width:200px;font-weight:600;">No. Mutasi</td><td style="padding:8px 0;width:20px;">:</td><td style="padding:8px 0;"><%= no_mutasi %></td></tr>
+                  <tr><td style="padding:8px 0;font-weight:600;vertical-align:top;">Nama Dokumen</td><td style="padding:8px 0;vertical-align:top;">:</td><td style="padding:8px 0;"><ul style="margin:0;padding-left:20px;"><% documents.forEach(function(doc) { %><li style="margin:4px 0;"><%= doc.arsip_name || doc.content_name %></li><% }); %></ul></td></tr>
+                  <tr><td style="padding:8px 0;font-weight:600;">Kategori Dokumen</td><td style="padding:8px 0;">:</td><td style="padding:8px 0;"><%= kategori_dokumen %></td></tr>
+                  <tr><td style="padding:8px 0;font-weight:600;">Status Kategori Dokumen</td><td style="padding:8px 0;">:</td><td style="padding:8px 0;"><%= kategori_keamanan %></td></tr>
+                  <tr><td style="padding:8px 0;font-weight:600;">Jumlah</td><td style="padding:8px 0;">:</td><td style="padding:8px 0;"><%= jumlah %></td></tr>
+                  <tr><td style="padding:8px 0;font-weight:600;">Tanggal Pengajuan</td><td style="padding:8px 0;">:</td><td style="padding:8px 0;"><%= tgl_pengajuan %></td></tr>
+                  <tr><td style="padding:8px 0;font-weight:600;">Tanggal Mutasi</td><td style="padding:8px 0;">:</td><td style="padding:8px 0;"><%= tgl_mutasi %></td></tr>
+                  <tr><td style="padding:8px 0;font-weight:600;">Diajukan Oleh</td><td style="padding:8px 0;">:</td><td style="padding:8px 0;"><%= user_nama %></td></tr>
+                </table>
+              </div>
+              <div style="background-color:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:20px;margin-bottom:25px;">
+                <p style="margin:0 0 10px 0;color:#991b1b;font-weight:600;font-size:14px;">Alasan Penolakan:</p>
+                <p style="margin:0;color:#7f1d1d;font-size:14px;line-height:1.6;"><%= revisi_reason %></p>
+              </div>
+              <p style="margin:0;color:#6b7280;font-size:14px;line-height:1.6;">Harap dimengerti. Jika ada pertanyaan, silakan hubungi administrator sistem.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color:#1e293b;padding:20px 30px;text-align:center;">
+              <p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.5;">Email ini dikirim secara otomatis oleh sistem DMS Compliance.<br>Mohon tidak membalas email ini.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

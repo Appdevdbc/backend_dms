@@ -1,0 +1,184 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml"
+    xmlns:o="urn:schemas-microsoft-com:office:office">
+
+<head>
+    <!--[if gte mso 9]>
+<xml>
+  <o:OfficeDocumentSettings>
+    <o:AllowPNG/>
+    <o:PixelsPerInch>96</o:PixelsPerInch>
+  </o:OfficeDocumentSettings>
+</xml>
+<![endif]-->
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="x-apple-disable-message-reformatting">
+    <!--[if !mso]><!-->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"><!--<![endif]-->
+    <title></title>
+    <style>
+        /* Reset some default styles */
+        body,
+        p,
+        table {
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Global email styles */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #ffffff;
+        }
+
+        /* Header styles */
+        .header {
+            background-color: #2378ef;
+            color: #fff;
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin: 0;
+        }
+
+        /* Content styles */
+        .content {
+            padding: 20px;
+        }
+
+        h2 {
+            color: #333;
+            font-size: 20px;
+        }
+
+        p {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 20px;
+        }
+
+        /* Button styles */
+        /* Button styles */
+        .cta-button {
+            display: inline-block;
+            border: 3px solid black;
+            background-color: #e4e4e4;
+            margin-top: 20px;
+            font-size: 16px;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            text-align: center;
+            border-color: #4d5e6c;
+        }
+
+        /* Table styles */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        /* Footer styles */
+        .footer {
+            background-color: #f4f4f4;
+            padding: 20px 0;
+            text-align: center;
+        }
+
+        .footer p {
+            font-size: 14px;
+            color: #777;
+        }
+
+
+        /* Media Queries for Responsiveness */
+        @media screen and (max-width: 600px) {
+            .container {
+                width: 100%;
+                padding: 10px;
+            }
+
+            .header h1 {
+                font-size: 22px;
+            }
+
+            .content p {
+                margin-bottom: 10px;
+            }
+
+            .cta-button {
+                display: inline-block;
+                margin: 20px auto;
+                position: relative;
+            }
+
+            table {
+                width: 100%;
+                margin-top: 10px;
+            }
+
+            th,
+            td {
+                padding: 6px;
+                font-size: 14px;
+            }
+
+            .footer p {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <%= data.header %>
+            </h1>
+        </div>
+        <div class="content">
+            <p>Kepada Yth,</p>
+            <p>Pimpinan <%= data.domainName %>,</p>
+
+            <p>Penempatan Dana Investasi yang akan dijual, berikut formnya :</p>
+            <p>Berikut link approval Penempatan Dana Investasi, mohon untuk di approve :</p>
+            <p>&nbsp;</p>
+            <a class="cta-button" href="<%= data.link %>">Link</a>
+            <p>&nbsp;</p>
+            <p>Demikian informasi yang kita sampaikan.</p>
+            <p>Terima Kasih,</p>
+            <p>&nbsp;</p>
+            <p>&nbsp;</p>
+            <p>Best Regards,</p>
+            <p><%= data.domainName %>,</p>
+        </div>
+        <div class="footer">
+            <p><em>Copyright &#169; <%= data.tahun %> IT DBC</em></p>
+        </div>
+    </div>
+</body>
+
+</html>

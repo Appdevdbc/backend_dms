@@ -1,0 +1,74 @@
+<table border="0" cellpadding="0" cellspacing="0" style="width:100%;font-family:arial;font-size:1em;margin:0 auto;padding:10px;border:2em solid rgb(128,124,124);">
+  <tr>
+    <td><h3>DMS COMPLIANCE</h3></td>
+    <td><img width="80" src="cid:dbc" style="float:right;" /></td>
+  </tr>
+  <tr>
+    <td colspan="2" style="font-weight:bold;text-align:center;padding-top:25px;border-top:5px solid rgb(128,124,124);"></td>
+  </tr>
+  <tr>
+    <td colspan="2" style="font-size:1.2em"><b>Kepada <%= recipient_name %></b></td>
+  </tr>
+  <tr><td colspan="2">&nbsp;</td></tr>
+  <tr>
+    <td colspan="2" style="width:100%;text-align:left">
+      <table style="width:100%;font-size:1em;margin:0 auto;padding:10px;">
+        <tr>
+          <td style="width:25%">No. Mutasi</td>
+          <td style="width:5%">:</td>
+          <td><%= no_mutasi %></td>
+        </tr>
+        <tr>
+          <td>Nama Dokumen</td>
+          <td>:</td>
+          <td>
+            <ul style="margin:0;padding-left:20px;">
+              <% documents.forEach(function(doc) { %>
+                <li><%= doc %></li>
+              <% }); %>
+            </ul>
+          </td>
+        </tr>
+        <tr>
+          <td>Kategori Dokumen</td>
+          <td>:</td>
+          <td><%= kategori_dokumen %></td>
+        </tr>
+        <tr>
+          <td>Status Kategori Dokumen</td>
+          <td>:</td>
+          <td><%= kategori_keamanan %></td>
+        </tr>
+        <tr>
+          <td>Jumlah</td>
+          <td>:</td>
+          <td><%= jumlah %></td>
+        </tr>
+        <tr>
+          <td>Tanggal Pengajuan</td>
+          <td>:</td>
+          <td><%= tgl_pengajuan %></td>
+        </tr>
+        <tr>
+          <td>Tanggal Mutasi</td>
+          <td>:</td>
+          <td><%= tgl_mutasi %></td>
+        </tr>
+        <tr>
+          <td>Diajukan Oleh</td>
+          <td>:</td>
+          <td><%= user_nama %></td>
+        </tr>
+      </table>
+      <br/>
+      Email ini sebagai pemberitahuan kepada arsiparis <%= lokasi_arsip_name %>, Document Owner dan Corporate Legal bahwa mutasi arsip telah berhasil dilakukan dengan diunggahnya Berita Acara Mutasi Arsip pada sistem DMS.
+      <br/><br/>
+      Selanjutnya terdapat perubahan/koreksi data di sistem DMS berupa :
+      <br/><br/>
+      - Data lemari penyimpanan dan kode lemari;<br/>
+      - Lokasi penyimpanan;<br/>
+      <br/>
+      Untuk informasi lebih lanjut silahkan klik <a target="_blank" href="<%= detail_link %>">Link</a>
+    </td>
+  </tr>
+</table>

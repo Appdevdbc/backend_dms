@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f5f7fa; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #ee4034 0%, #ee4034 100%); color: white; padding: 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+        .header .code { background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 20px; display: inline-block; margin-top: 10px; font-weight: 500; }
+        .content { padding: 30px; }
+        .greeting { font-size: 16px; color: #2c3e50; margin-bottom: 20px; }
+        .info-card { background: #f8f9fa; border-left: 4px solid #ee4034; padding: 20px; margin: 20px 0; border-radius: 8px; }
+        .info-table { width: 100%; border-collapse: collapse; }
+        .info-table td { padding: 12px 0; border-bottom: 1px solid #e9ecef; }
+        .info-table td:first-child { font-weight: 600; color: #495057; width: 140px; }
+        .info-table td:nth-child(2) { width: 20px; color: #6c757d; }
+        .info-table td:last-child { color: #2c3e50; }
+        .cta-section { text-align: center; margin: 30px 0; }
+        .btn { background: transparent; color: #ee4034; border: 2px solid #ee4034; padding: 14px 28px; text-decoration: none; border-radius: 25px; font-weight: 600; display: inline-block; transition: all 0.2s; }
+        .btn:hover { background: #ee4034; color: white; transform: translateY(-2px); }
+        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #6c757d; font-size: 14px; }
+        .divider { height: 2px; background: linear-gradient(90deg, #ee4034, #ee4034); margin: 20px 0; border-radius: 1px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Request Design Approval</h1>
+            <div class="code"><%= data.no %></div>
+        </div>
+        
+        <div class="content">
+            <div class="greeting">
+                Kepada Yth. <strong><%= data.pic %></strong>
+            </div>
+            
+            <p>Terdapat Request Design yang diminta untuk perubahan target draft design oleh <%= data.pic_dkv %> :</p>
+            
+            <div class="info-card">
+                <table class="info-table">
+                    <tr>
+                        <td>📋 Project Title</td>
+                        <td>:</td>
+                        <td><strong><%= data.judul %></strong></td>
+                    </tr>
+                    <tr>
+                        <td>👤 PIC Request</td>
+                        <td>:</td>
+                        <td><%= data.pic_pembuat %></td>
+                    </tr>
+                    <tr>
+                        <td>📅 Tanggal Target</td>
+                        <td>:</td>
+                        <td><%= data.target %></td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="cta-section">
+                <a href="<%= data.link %>" class="btn">🚀 Klik disini</a>
+            </div>
+            
+            <div class="divider"></div>
+
+            <p style="color: #6c757d; font-size: 14px; line-height: 1.6;">
+                Silakan klik tombol di atas untuk mengakses aplikasi Request Design dan melakukan proses approval.
+                Jika ada pertanyaan, silakan hubungi tim terkait.
+            </p>
+
+            <p style="color: #2c3e50; font-size: 14px; margin-top: 30px;">
+                Regards,<br>
+                <strong>Sistem Request Design</strong>
+            </p>
+        </div>
+        
+        <div class="footer">
+            Copyright © 2026 IT DBC
+        </div>
+    </div>
+</body>
+</html>
