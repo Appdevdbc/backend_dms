@@ -69,6 +69,16 @@ import {
 import { getProfileImages, removeProfileImage, uploadProfileImage } from "../controllers/master/beautifyController.js";
 import { listCodeMaster, saveCodeMaster } from "../controllers/master/codeController.js";
 import { listPermintaan } from "../controllers/WJS/PermintaanController.js";
+import { listMachiningProses, saveMachiningProses, deleteMachiningProses } from "../controllers/master/machiningController.js";
+import { listParts, savePart, deletePart } from "../controllers/master/partsController.js";
+import { listMachines, saveMachine, deleteMachine } from "../controllers/master/machineController.js";
+import { listTemplates, getTemplateParts, getTemplateMachiningProses, saveTemplate, deleteTemplate } from "../controllers/master/templateController.js";
+import { listJobTypes, saveJobType, deleteJobType } from "../controllers/master/jobTypeController.js";
+import { listDepartments, getDepartmentSites, saveDepartment, deleteDepartment } from "../controllers/master/departmentController.js";
+import { listGroupDepartments, getAvailableDepartments, getGroupDepartments, saveGroupDepartment, deleteGroupDepartment } from "../controllers/master/groupDepartmentController.js";
+import { listTJKN, listTJKNEmployee, getMonths, saveTJKN, saveTJKNEmployee, deleteTJKN, deleteTJKNEmployee } from "../controllers/master/tjknController.js";
+import { listEmployees, searchEmployeeByNIK, getSections, getPositions, saveEmployee, deleteEmployee, syncEmployeesFromPortal } from "../controllers/master/employeeController.js";
+import { listBreakTimes, updateBreakTime } from "../controllers/master/breakController.js";
 
 //end class definition
 
@@ -184,6 +194,68 @@ router.post("/removeProfileImage",removeProfileImage)
 //CodeController
 router.get('/listCodeMaster', listCodeMaster);
 router.post('/saveCodeMaster', saveCodeMaster);
+
+//MachiningController
+router.get('/listMachiningProses', listMachiningProses);
+router.post('/saveMachiningProses', saveMachiningProses);
+router.post('/deleteMachiningProses', deleteMachiningProses);
+
+//PartsController
+router.get('/listParts', listParts);
+router.post('/savePart', savePart);
+router.post('/deletePart', deletePart);
+
+//MachineController
+router.get('/listMachines', listMachines);
+router.post('/saveMachine', saveMachine);
+router.post('/deleteMachine', deleteMachine);
+
+//TemplateController
+router.get('/listTemplates', listTemplates);
+router.get('/getTemplateParts', getTemplateParts);
+router.get('/getTemplateMachiningProses', getTemplateMachiningProses);
+router.post('/saveTemplate', saveTemplate);
+router.post('/deleteTemplate', deleteTemplate);
+
+//JobTypeController
+router.get('/listJobTypes', listJobTypes);
+router.post('/saveJobType', saveJobType);
+router.post('/deleteJobType', deleteJobType);
+
+//DepartmentController
+router.get('/listDepartments', listDepartments);
+router.get('/getDepartmentSites', getDepartmentSites);
+router.post('/saveDepartment', saveDepartment);
+router.post('/deleteDepartment', deleteDepartment);
+
+//GroupDepartmentController
+router.get('/listGroupDepartments', listGroupDepartments);
+router.get('/getAvailableDepartments', getAvailableDepartments);
+router.get('/getGroupDepartments', getGroupDepartments);
+router.post('/saveGroupDepartment', saveGroupDepartment);
+router.post('/deleteGroupDepartment', deleteGroupDepartment);
+
+//TJKNController
+router.get('/listTJKN', listTJKN);
+router.get('/listTJKNEmployee', listTJKNEmployee);
+router.get('/getMonths', getMonths);
+router.post('/saveTJKN', saveTJKN);
+router.post('/saveTJKNEmployee', saveTJKNEmployee);
+router.post('/deleteTJKN', deleteTJKN);
+router.post('/deleteTJKNEmployee', deleteTJKNEmployee);
+
+//EmployeeController
+router.get('/listEmployees', listEmployees);
+router.get('/searchEmployeeByNIK', searchEmployeeByNIK);
+router.get('/getSections', getSections);
+router.get('/getPositions', getPositions);
+router.post('/saveEmployee', saveEmployee);
+router.post('/deleteEmployee', deleteEmployee);
+router.post('/syncEmployeesFromPortal', syncEmployeesFromPortal);
+
+//BreakController
+router.get('/listBreakTimes', listBreakTimes);
+router.post('/updateBreakTime', updateBreakTime);
 
 export default router;
 

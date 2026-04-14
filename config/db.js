@@ -172,12 +172,12 @@ export const dbCTS = knex({
   client: "mssql",
   connection: {
     host: process.env.DB_CTS_HOST,
-    port: process.env.DB_CTS_PORT || 1433,
+    port: parseInt(process.env.DB_CTS_PORT) || 1433,
     user: process.env.DB_CTS_USERNAME,
     password: process.env.DB_CTS_PASSWORD,
     timezone: "Asia/Jakarta",
     options: {
-      instanceName: process.env.DB_CTS_INSTANCE,
+      instanceName: process.env.DB_CTS_INSTANCE || undefined,
       database: process.env.DB_CTS_DATABASE,
       debug: {
         packet: false,
@@ -204,7 +204,7 @@ export const dbSPK = knex({
   client: "mssql",
   connection: {
     host: process.env.DB_SPK_HOST,
-    port: process.env.DB_SPK_PORT || 1433,
+    port: parseInt(process.env.DB_SPK_PORT) || 1433,
     user: process.env.DB_SPK_USERNAME,
     password: process.env.DB_SPK_PASSWORD,
     timezone: "Asia/Jakarta",
