@@ -107,6 +107,28 @@ import {
   exportLogToExcel
 } from "../controllers/WJS/LogTiketController.js";
 import {
+  listTerimaSPK,
+  createTerimaSPK,
+  getTerimaSPK,
+  updateTerimaSPK,
+  deleteTerimaSPK,
+  prosesStore,
+  prosesStore2,
+  updateDuedate,
+  listMachining,
+  createMachining,
+  updateMachining,
+  deleteMachining,
+  getTemplateMachining,
+  listMasterMachining,
+  listProsesSPK,
+  updateTarget,
+  getDetailStatus,
+  listCloseSPK,
+  reopenSPK,
+  cetakSPK,
+} from "../controllers/WJS/TerimaSPKController.js";
+import {
   getRekapArsip,
   getRekapArsipBulan,
   getRekapArsipDbc,
@@ -347,6 +369,41 @@ router.post('/pengaduan/:id/selesai', upload.single('filelampiran'), selesaiPeng
 // Log Tiket Pemusnahan & Mutasi (Public - No Auth Required)
 router.get('/log-tiket-pemusnahan-mutasi', getLogByTicketNumber);
 router.get('/log-tiket-pemusnahan-mutasi/export', exportLogToExcel);
+
+// ─── TerimaSPK routes ─────────────────────────────────────────────────────────
+// List & CRUD
+router.get('/terimaSPK/list', listTerimaSPK);
+router.get('/terimaSPK/:id', getTerimaSPK);
+router.post('/terimaSPK/create', createTerimaSPK);
+router.put('/terimaSPK/update/:id', updateTerimaSPK);
+router.post('/terimaSPK/delete', deleteTerimaSPK);
+
+// Status
+router.post('/terimaSPK/prosesStore', prosesStore);
+router.post('/terimaSPK/prosesStore2', prosesStore2);
+
+// Due Date
+router.put('/terimaSPK/duedate/:id', updateDuedate);
+
+// Machining
+router.get('/terimaSPK/machining/master', listMasterMachining);
+router.get('/terimaSPK/machining/template', getTemplateMachining);
+router.get('/terimaSPK/machining/list', listMachining);
+router.post('/terimaSPK/machining/create', createMachining);
+router.put('/terimaSPK/machining/update/:id', updateMachining);
+router.post('/terimaSPK/machining/delete', deleteMachining);
+
+// Proses
+router.get('/terimaSPK/proses/list', listProsesSPK);
+router.put('/terimaSPK/proses/target', updateTarget);
+router.get('/terimaSPK/proses/detail-status', getDetailStatus);
+
+// Close
+router.get('/terimaSPK/close/list', listCloseSPK);
+router.post('/terimaSPK/close/reopen', reopenSPK);
+
+// Cetak
+router.get('/terimaSPK/cetak/:id', cetakSPK);
 
 // Rekapitulasi routes
 router.get('/rekapitulasi/rekap-arsip', getRekapArsip);

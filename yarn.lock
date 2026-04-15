@@ -1705,14 +1705,6 @@ cors@^2.8.5:
     object-assign "^4"
     vary "^1"
 
-cpu-features@~0.0.10:
-  version "0.0.10"
-  resolved "https://registry.npmjs.org/cpu-features/-/cpu-features-0.0.10.tgz"
-  integrity sha512-9IkYqtX3YHPCzoVg1Py+o9057a3i0fp7S530UWokCSaFVTc7CwXPRiOjRjBQQ18ZCNafx78YfnG+HALxtVmOGA==
-  dependencies:
-    buildcheck "~0.0.6"
-    nan "^2.19.0"
-
 crc-32@^1.2.0, crc-32@~1.2.0, crc-32@~1.2.1:
   version "1.2.2"
   resolved "https://registry.npmjs.org/crc-32/-/crc-32-1.2.2.tgz"
@@ -4104,7 +4096,7 @@ multer@^1.4.5-lts.1:
     type-is "^1.6.4"
     xtend "^4.0.0"
 
-nan@^2.19.0, nan@^2.20.0:
+nan@^2.20.0:
   version "2.25.0"
   resolved "https://registry.npmjs.org/nan/-/nan-2.25.0.tgz"
   integrity sha512-0M90Ag7Xn5KMLLZ7zliPWP3rT90P6PN+IzVFS0VqmnPktBk3700xUVv8Ikm9EUaUE5SDWdp/BIxdENzVznpm1g==
