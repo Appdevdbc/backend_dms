@@ -8,6 +8,7 @@ import documentViewRouter from './document-view.routes.js';
 import documentCancelRouter from './document-cancel.routes.js';
 import authRouter from '../routes/auth.js';
 import spkRouter from './spk.js';
+import reportRouter from './report.js';
 //end class definition
 
 //route definition
@@ -64,6 +65,7 @@ router.use('/agreements',agreementRouter)
 router.use('/document-view',documentViewRouter)
 router.use('/document-cancel',documentCancelRouter)
 router.use('/',spkRouter)
+router.use('/',reportRouter)
 
 
 export default router;
