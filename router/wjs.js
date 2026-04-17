@@ -103,6 +103,17 @@ import {
   exportRiwayatPdf as exportRiwayatPengaduanPdf
 } from "../controllers/WJS/PengaduanController.js";
 import {
+  listAdjustment,
+  listAdjustmentBySPK,
+  getAdjustment,
+  storeAdjustment,
+} from "../controllers/WJS/MachiningProsesController.js";
+import {
+  getList as getOrderPartList,
+  getJobTypes,
+  store as storeOrderPart,
+} from "../controllers/WJS/OrderPartController.js";
+import {
   getDashboardPerformance,
   getSpkMonitor,
 } from "../controllers/WJS/DashboardController.js";
@@ -373,6 +384,17 @@ router.post('/pengaduan/:id/selesai', upload.single('filelampiran'), selesaiPeng
 // Log Tiket Pemusnahan & Mutasi (Public - No Auth Required)
 router.get('/log-tiket-pemusnahan-mutasi', getLogByTicketNumber);
 router.get('/log-tiket-pemusnahan-mutasi/export', exportLogToExcel);
+
+// ─── Adjustment (MachiningProses) routes ─────────────────────────────────────
+router.get('/adjustment/list', listAdjustment);
+router.get('/adjustment/by-spk', listAdjustmentBySPK);
+router.get('/adjustment/detail', getAdjustment);
+router.post('/adjustment/store', storeAdjustment);
+
+// ─── OrderPart routes ─────────────────────────────────────────────────────────
+router.get('/orderPart/list', getOrderPartList);
+router.get('/orderPart/job-types', getJobTypes);
+router.post('/orderPart/store', storeOrderPart);
 
 // ─── Dashboard routes ─────────────────────────────────────────────────────────
 router.get('/dashboard/performance', getDashboardPerformance);
