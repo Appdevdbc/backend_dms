@@ -103,6 +103,10 @@ import {
   exportRiwayatPdf as exportRiwayatPengaduanPdf
 } from "../controllers/WJS/PengaduanController.js";
 import {
+  getDashboardPerformance,
+  getSpkMonitor,
+} from "../controllers/WJS/DashboardController.js";
+import {
   getLogByTicketNumber,
   exportLogToExcel
 } from "../controllers/WJS/LogTiketController.js";
@@ -369,6 +373,10 @@ router.post('/pengaduan/:id/selesai', upload.single('filelampiran'), selesaiPeng
 // Log Tiket Pemusnahan & Mutasi (Public - No Auth Required)
 router.get('/log-tiket-pemusnahan-mutasi', getLogByTicketNumber);
 router.get('/log-tiket-pemusnahan-mutasi/export', exportLogToExcel);
+
+// ─── Dashboard routes ─────────────────────────────────────────────────────────
+router.get('/dashboard/performance', getDashboardPerformance);
+router.get('/dashboard/spk-monitor', getSpkMonitor);
 
 // ─── TerimaSPK routes ─────────────────────────────────────────────────────────
 // List & CRUD
