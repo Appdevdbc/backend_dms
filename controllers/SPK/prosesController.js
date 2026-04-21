@@ -66,10 +66,10 @@ export const listSPKProses = async (req, res) => {
       for (let spk of response) {
         spk.process_status = await getProcessStatus(spk.id_spk);
         if (spk.tanggal) {
-          spk.tanggal = dayjs(spk.tanggal).format('DD/MM/YYYY');
+          spk.tanggal = dayjs(spk.tanggal).format('DD-MM-YYYY');
         }
         if (spk.target_selesai) {
-          spk.target_selesai = dayjs(spk.target_selesai).format('DD/MM/YYYY');
+          spk.target_selesai = dayjs(spk.target_selesai).format('DD-MM-YYYY');
         }
       }
       
@@ -119,10 +119,10 @@ export const listSPKProses = async (req, res) => {
     for (let spk of response.data) {
       spk.process_status = await getProcessStatus(spk.id_spk);
       if (spk.tanggal) {
-        spk.tanggal = dayjs(spk.tanggal).format('DD/MM/YYYY');
+        spk.tanggal = dayjs(spk.tanggal).format('DD-MM-YYYY');
       }
       if (spk.target_selesai) {
-        spk.target_selesai = dayjs(spk.target_selesai).format('DD/MM/YYYY');
+        spk.target_selesai = dayjs(spk.target_selesai).format('DD-MM-YYYY');
       }
     }
     

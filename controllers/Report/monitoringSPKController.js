@@ -47,23 +47,23 @@ export const getMonitoringSPK = async (req, res) => {
     
     const data = result;
     
-    // Format dates to DD/MM/YYYY
+    // Format dates to DD-MM-YYYY
     const formattedData = data.map(item => ({
       ...item,
-      tanggal: item.tanggal ? dayjs(item.tanggal).format('DD/MM/YYYY') : '',
-      duedate: item.duedate ? dayjs(item.duedate).format('DD/MM/YYYY') : '',
-      bongkar_start: item.bongkar_start ? dayjs(item.bongkar_start).format('DD/MM/YYYY HH:mm') : '',
-      bongkar_end: item.bongkar_end ? dayjs(item.bongkar_end).format('DD/MM/YYYY HH:mm') : '',
-      order_part_start: item.order_part_start ? dayjs(item.order_part_start).format('DD/MM/YYYY HH:mm') : '',
-      order_part_end: item.order_part_end ? dayjs(item.order_part_end).format('DD/MM/YYYY HH:mm') : '',
-      drawing_start: item.drawing_start ? dayjs(item.drawing_start).format('DD/MM/YYYY HH:mm') : '',
-      drawing_end: item.drawing_end ? dayjs(item.drawing_end).format('DD/MM/YYYY HH:mm') : '',
-      machining_start: item.machining_start ? dayjs(item.machining_start).format('DD/MM/YYYY HH:mm') : '',
-      machining_end: item.machining_end ? dayjs(item.machining_end).format('DD/MM/YYYY HH:mm') : '',
-      assy_start: item.assy_start ? dayjs(item.assy_start).format('DD/MM/YYYY HH:mm') : '',
-      assy_end: item.assy_end ? dayjs(item.assy_end).format('DD/MM/YYYY HH:mm') : '',
-      trial_start: item.trial_start ? dayjs(item.trial_start).format('DD/MM/YYYY HH:mm') : '',
-      trial_end: item.trial_end ? dayjs(item.trial_end).format('DD/MM/YYYY HH:mm') : '',
+      tanggal: item.tanggal ? dayjs(item.tanggal).format('DD-MM-YYYY') : '',
+      duedate: item.duedate ? dayjs(item.duedate).format('DD-MM-YYYY') : '',
+      bongkar_start: item.bongkar_start ? dayjs(item.bongkar_start).format('DD-MM-YYYY HH:mm') : '',
+      bongkar_end: item.bongkar_end ? dayjs(item.bongkar_end).format('DD-MM-YYYY HH:mm') : '',
+      order_part_start: item.order_part_start ? dayjs(item.order_part_start).format('DD-MM-YYYY HH:mm') : '',
+      order_part_end: item.order_part_end ? dayjs(item.order_part_end).format('DD-MM-YYYY HH:mm') : '',
+      drawing_start: item.drawing_start ? dayjs(item.drawing_start).format('DD-MM-YYYY HH:mm') : '',
+      drawing_end: item.drawing_end ? dayjs(item.drawing_end).format('DD-MM-YYYY HH:mm') : '',
+      machining_start: item.machining_start ? dayjs(item.machining_start).format('DD-MM-YYYY HH:mm') : '',
+      machining_end: item.machining_end ? dayjs(item.machining_end).format('DD-MM-YYYY HH:mm') : '',
+      assy_start: item.assy_start ? dayjs(item.assy_start).format('DD-MM-YYYY HH:mm') : '',
+      assy_end: item.assy_end ? dayjs(item.assy_end).format('DD-MM-YYYY HH:mm') : '',
+      trial_start: item.trial_start ? dayjs(item.trial_start).format('DD-MM-YYYY HH:mm') : '',
+      trial_end: item.trial_end ? dayjs(item.trial_end).format('DD-MM-YYYY HH:mm') : '',
     }));
     
     res.status(200).json(formattedData);
@@ -142,7 +142,7 @@ export const exportMonitoringSPK = async (req, res) => {
     // ── ROW 2: Subtitle / period ─────────────────────────────────────────────
     ws.mergeCells('A2:R2');
     const periodLabel = (start || end)
-      ? `Periode: ${start ? dayjs(start).format('DD/MM/YYYY') : '...'} s/d ${end ? dayjs(end).format('DD/MM/YYYY') : '...'}`
+      ? `Periode: ${start ? dayjs(start).format('DD-MM-YYYY') : '...'} s/d ${end ? dayjs(end).format('DD-MM-YYYY') : '...'}`
       : 'Semua Periode';
     const subtitleCell = ws.getCell('A2');
     subtitleCell.value = periodLabel;
@@ -152,7 +152,7 @@ export const exportMonitoringSPK = async (req, res) => {
     // ── ROW 3: Print date ────────────────────────────────────────────────────
     ws.mergeCells('A3:R3');
     const printCell = ws.getCell('A3');
-    printCell.value = `Dicetak: ${dayjs().format('DD/MM/YYYY HH:mm')}  |  Total Data: ${data.length}`;
+    printCell.value = `Dicetak: ${dayjs().format('DD-MM-YYYY HH:mm')}  |  Total Data: ${data.length}`;
     styleCell(printCell, { bg: 'FF9DC3E6', fontColor: 'FF1F3864', bold: false, size: 9, border: thickBorder });
     ws.getRow(3).height = 18;
 
@@ -209,8 +209,8 @@ export const exportMonitoringSPK = async (req, res) => {
     // ── ROW 6+: Data rows ────────────────────────────────────────────────────
     const evenBg  = 'FFF2F7FF';
     const oddBg   = 'FFFFFFFF';
-    const dateFmt = (v) => v ? dayjs(v).format('DD/MM/YYYY') : '';
-    const dtFmt   = (v) => v ? dayjs(v).format('DD/MM/YYYY HH:mm') : '';
+    const dateFmt = (v) => v ? dayjs(v).format('DD-MM-YYYY') : '';
+    const dtFmt   = (v) => v ? dayjs(v).format('DD-MM-YYYY HH:mm') : '';
 
     data.forEach((item, idx) => {
       const rowNum = idx + 6;

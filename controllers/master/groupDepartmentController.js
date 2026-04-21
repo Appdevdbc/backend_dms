@@ -3,6 +3,38 @@ import { decrypt, encrypt, getErrorResponse } from "../../helpers/utils.js";
 import { logger } from "../../helpers/logger.js";
 import dayjs from "dayjs";
 
+// Get Group_Menu list with SPK terima count per group — used by TerimaSPK collection page
+export const getGroupMenuWithCount = async (req, res) => {
+  // #swagger.tags = ['GroupDepartment']
+  /* #swagger.security = [{ "bearerAuth": [] }] */
+  // #swagger.description = 'Get Group_Menu list with count of SPK status=terima per group'
+  try {
+    const groups = await dbWJS('Group_Menu')
+      .select('id_group', 'nama')
+      .orderBy('nama', 'asc');
+
+    // Count SPK terima per group in one query
+    const counts = await dbWJS('SPK')
+      .select('id_group')
+      .count('* as cnt')
+      .where('status', 'terima')
+      .groupBy('id_group');
+
+    const countMap = Object.fromEntries(counts.map(c => [String(c.id_group), parseInt(c.cnt) || 0]));
+
+    const result = groups.map(g => ({
+      id_group: g.id_group,
+      nama:     g.nama,
+      count:    countMap[String(g.id_group)] || 0,
+    }));
+
+    res.status(200).json(result);
+  } catch (error) {
+    logger(error, 'GET /getGroupMenuWithCount', req.query);
+    return res.status(406).json(getErrorResponse(error));
+  }
+};
+
 export const listGroupDepartments = async (req, res) => {
   // #swagger.tags = ['GroupDepartment']
   /* #swagger.security = [{
