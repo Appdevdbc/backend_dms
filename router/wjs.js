@@ -27,6 +27,7 @@ import {
   deleteTerimaSPK,
   prosesStore,
   prosesStore2,
+  getDuedate,
   updateDuedate,
   listMachining,
   createMachining,
@@ -110,6 +111,7 @@ router.post('/terimaSPK/prosesStore', prosesStore);
 router.post('/terimaSPK/prosesStore2', prosesStore2);
 
 // Due Date
+router.get('/terimaSPK/duedate/:id', getDuedate);
 router.put('/terimaSPK/duedate/:id', updateDuedate);
 
 // Machining

@@ -343,7 +343,35 @@ export const prosesStore2 = async (req, res) => {
   }
 };
 
-// ─── 8. UPDATE DUE DATE ───────────────────────────────────────────────────────
+// ─── 8. GET DUE DATE ──────────────────────────────────────────────────────────
+export const getDuedate = async (req, res) => {
+  // #swagger.tags = ['TerimaSPK']
+  /* #swagger.security = [{ "bearerAuth": [] }] */
+  // #swagger.description = 'Get due date data untuk form edit'
+  try {
+    const { id } = req.params;
+    const data = await dbWJS("SPK")
+      .select(
+        "id_spk",
+        "target_analisis_start", "target_analisis_finish",
+        "target_drawing_start", "target_drawing_finish",
+        "target_order_start", "target_order_finish",
+        "target_machining_start", "target_machining_finish",
+        "target_assy_start", "target_assy_finish",
+        "target_trial_start", "target_trial_finish"
+      )
+      .where("id_spk", id)
+      .first();
+    
+    if (!data) return res.status(404).json({ type: "error", message: "SPK tidak ditemukan" });
+    return res.status(200).json(data);
+  } catch (error) {
+    logger(error, `GET /terimaSPK/duedate/${req.params.id}`, req.params);
+    return res.status(406).json(getErrorResponse(error));
+  }
+};
+
+// ─── 9. UPDATE DUE DATE ───────────────────────────────────────────────────────
 export const updateDuedate = async (req, res) => {
   // #swagger.tags = ['TerimaSPK']
   /* #swagger.security = [{ "bearerAuth": [] }] */
@@ -375,7 +403,7 @@ export const updateDuedate = async (req, res) => {
   }
 };
 
-// ─── 9. LIST MACHINING PROSES ─────────────────────────────────────────────────
+// ─── 9. UPDATE DUE DATE ───────────────────────────────────────────────────────
 export const listMachining = async (req, res) => {
   // #swagger.tags = ['TerimaSPK']
   /* #swagger.security = [{ "bearerAuth": [] }] */
@@ -442,7 +470,7 @@ export const listMachining = async (req, res) => {
   }
 };
 
-// ─── 10. CREATE MACHINING PROSES ──────────────────────────────────────────────
+// ─── 10. LIST MACHINING PROSES ─────────────────────────────────────────────────
 export const createMachining = async (req, res) => {
   // #swagger.tags = ['TerimaSPK']
   /* #swagger.security = [{ "bearerAuth": [] }] */
