@@ -63,7 +63,10 @@ export const listAdjustmentBySPK = async (req, res) => {
   /* #swagger.security = [{ "bearerAuth": [] }] */
   // #swagger.description = 'List adjustment scan untuk SPK dan PIC tertentu'
   try {
-    const { spk, pic } = req.query;
+    // Support both path params (PHP compatibility) and query params
+    const spk = req.params.spk || req.query.spk;
+    const pic = req.params.pic || req.query.pic;
+    
     if (!spk || !pic)
       return res.status(400).json({ type: "error", message: "spk dan pic wajib diisi" });
 
@@ -87,7 +90,7 @@ export const listAdjustmentBySPK = async (req, res) => {
 
     return res.status(200).json(Array.isArray(result) ? result : result[0] ?? []);
   } catch (error) {
-    logger(error, "GET /adjustment/by-spk", req.query);
+    logger(error, "GET /adjusment/list", { spk, pic });
     return res.status(406).json(getErrorResponse(error));
   }
 };
@@ -133,7 +136,7 @@ export const storeAdjustment = async (req, res) => {
     if (!["finish", "postpone"].includes(action))
       return res.status(400).json({ type: "error", message: "Action harus finish atau postpone" });
 
-    const datetime = dayjs(`${tanggal} ${jam}:${menit}:00`).format("YYYY-MM-DD HH:mm:ss");
+    const datetime = dayjs(`${tanggal} ${jam}:${menit}:00`, `DD-MM-YYYY HH:mm`).format("YYYY-MM-DD HH:mm:ss");
     const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
 
     const updateData = {

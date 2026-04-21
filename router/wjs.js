@@ -387,7 +387,8 @@ router.get('/log-tiket-pemusnahan-mutasi/export', exportLogToExcel);
 
 // ─── Adjustment (MachiningProses) routes ─────────────────────────────────────
 router.get('/adjustment/list', listAdjustment);
-router.get('/adjustment/by-spk', listAdjustmentBySPK);
+router.get('/adjusment/list/:spk/:pic', listAdjustmentBySPK); // PHP compatibility route
+router.get('/adjustment/by-spk', listAdjustmentBySPK); // Alternative query param route
 router.get('/adjustment/detail', getAdjustment);
 router.post('/adjustment/store', storeAdjustment);
 
