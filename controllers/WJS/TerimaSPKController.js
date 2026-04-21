@@ -15,9 +15,9 @@ const isRunning = (q) =>
 // ─── Helper: close SPK Online ─────────────────────────────────────────────────
 const closeSPKOnline = async (id_spk) => {
   try {
-    const data = await dbSPK("spk").select("no_spkonline").where("id_spk", id_spk).first();
+    const data = await dbWJS("spk").select("no_spkonline").where("id_spk", id_spk).first();
     if (data?.no_spkonline) {
-      await dbSPK.raw("exec [sp_close] ?, null, 'SPK telah selesai dikerjakan'", [data.no_spkonline]);
+      await dbSPK.raw(`exec [sp_close] '${data.no_spkonline}', null, 'SPK telah selesai dikerjakan'`);
     }
   } catch (e) {
     // integrasi SPK online tidak boleh gagalkan proses utama
@@ -68,22 +68,28 @@ export const createTerimaSPK = async (req, res) => {
   // #swagger.tags = ['TerimaSPK']
   /* #swagger.security = [{ "bearerAuth": [] }] */
   // #swagger.description = 'Tambah SPK baru'
-  const trx = await dbSPK.transaction();
+  const trx = await dbWJS.transaction();
   try {
     const { tanggal, tipe, jenis, target_selesai, subject, id_dept, creator } = req.body;
     const empid = decrypt(creator);
     const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
 
-    const groupDept = await trx("GroupDept").where("dept_id", id_dept).first();
+    const groupDept = await trx("Group_Dept").where("dept_id", id_dept).first();
     if (!groupDept) return res.status(406).json({ type: "error", message: "Department tidak ditemukan di GroupDept" });
 
-    const [id_spk] = await trx("SPK").insert({
+    const query = trx("SPK").insert({
       tanggal, tipe, jenis, target_selesai, subject,
       id_dept, id_group: groupDept.grp_id,
       status: "terima",
-      created_by: empid, created_at: now,
-      updated_by: empid, updated_at: now,
+      // created_by: empid, 
+      created_at: now,
+      // updated_by: empid, 
+      updated_at: now,
     });
+
+    console.log(query.toString()); // tampilkan raw SQL
+
+    const [id_spk] = await query;
 
     await trx.commit();
     return res.status(200).json({ message: "SPK berhasil dibuat", id_spk });
@@ -100,7 +106,7 @@ export const getTerimaSPK = async (req, res) => {
   /* #swagger.security = [{ "bearerAuth": [] }] */
   try {
     const { id } = req.params;
-    const data = await dbSPK("SPK as a")
+    const data = await dbWJS("SPK as a")
       .select("a.*", "b.nama as dept")
       .leftJoin("Department as b", "a.id_dept", "b.id_dept")
       .where("a.id_spk", id)
@@ -118,14 +124,14 @@ export const updateTerimaSPK = async (req, res) => {
   // #swagger.tags = ['TerimaSPK']
   /* #swagger.security = [{ "bearerAuth": [] }] */
   // #swagger.description = 'Update data SPK'
-  const trx = await dbSPK.transaction();
+  const trx = await dbWJS.transaction();
   try {
     const { id } = req.params;
     const { tanggal, tipe, jenis, target_selesai, subject, id_dept, creator } = req.body;
     const empid = decrypt(creator);
     const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
 
-    const groupDept = await trx("GroupDept").where("dept_id", id_dept).first();
+    const groupDept = await trx("Group_Dept").where("dept_id", id_dept).first();
     if (!groupDept) return res.status(406).json({ type: "error", message: "Department tidak ditemukan di GroupDept" });
 
     await trx("SPK").where("id_spk", id).update({
@@ -151,9 +157,9 @@ export const deleteTerimaSPK = async (req, res) => {
   try {
     const { id, ids } = req.body;
     if (ids && Array.isArray(ids)) {
-      await dbSPK("SPK").whereIn("id_spk", ids).delete();
+      await dbWJS("SPK").whereIn("id_spk", ids).delete();
     } else {
-      await dbSPK("SPK").where("id_spk", id).delete();
+      await dbWJS("SPK").where("id_spk", id).delete();
     }
     return res.status(200).json({ message: "SPK berhasil dihapus" });
   } catch (error) {
@@ -172,37 +178,37 @@ export const prosesStore = async (req, res) => {
     const ids = tbl ? tbl.map((t) => t.table_id) : [table_id];
 
     for (const id of ids) {
-      const spk = await dbSPK("SPK").where("id_spk", id).first();
+      const spk = await dbWJS("SPK").where("id_spk", id).first();
       if (!spk) return res.status(406).json({ status: false, title: "Gagal !!", message: `SPK ${id} tidak ditemukan` });
 
       if (status === "tutup") {
         if (spk.jenis === "repair") {
-          const scanSpv = await dbSPK("Scan_SPV").where("id_spk", id).count("* as cnt").first();
-          const scanOpt = await dbSPK("Scan_Operator").where("id_spk", id).count("* as cnt").first();
+          const scanSpv = await dbWJS("Scan_SPV").where("id_spk", id).count("* as cnt").first();
+          const scanOpt = await dbWJS("Scan_Operator").where("id_spk", id).count("* as cnt").first();
           if (!scanSpv.cnt || !scanOpt.cnt)
             return res.json({ status: false, title: "Gagal !!", message: "SPK belum mulai proses machining" });
 
-          const logScan = await dbSPK("Log_Scan").where("log_id_spk", id).count("* as cnt").first();
+          const logScan = await dbWJS("Log_Scan").where("log_id_spk", id).count("* as cnt").first();
           if (logScan.cnt > 0)
             return res.json({ status: false, title: "Gagal !!", message: "Status SPK sedang berjalan" });
 
-          await dbSPK("SPK").where("id_spk", id).update({ status: "tutup" });
+          await dbWJS("SPK").where("id_spk", id).update({ status: "tutup" });
           await closeSPKOnline(id);
         } else {
-          const scanOpt = await dbSPK("Scan_Operator").where("id_spk", id).count("* as cnt").first();
+          const scanOpt = await dbWJS("Scan_Operator").where("id_spk", id).count("* as cnt").first();
           if (!scanOpt.cnt)
             return res.json({ status: false, title: "Gagal !!", message: "SPK belum mulai proses" });
 
-          const running = await isRunning(dbSPK("Scan_Operator").where("id_spk", id)).count("* as cnt").first();
+          const running = await isRunning(dbWJS("Scan_Operator").where("id_spk", id)).count("* as cnt").first();
           if (running.cnt > 0)
             return res.json({ status: false, title: "Gagal !!", message: "Masih ada proses yang sedang berjalan tidak dapat diclose" });
 
-          await dbSPK("SPK").where("id_spk", id).update({ status: "tutup" });
+          await dbWJS("SPK").where("id_spk", id).update({ status: "tutup" });
           await closeSPKOnline(id);
         }
       } else if (status === "proses") {
         if (spk.jenis === "repair") {
-          const dueDateOk = await dbSPK("SPK").where("id_spk", id)
+          const dueDateOk = await dbWJS("SPK").where("id_spk", id)
             .whereNotNull("target_analisis_start").whereNotNull("target_analisis_finish")
             .whereNotNull("target_machining_start").whereNotNull("target_machining_finish")
             .whereNotNull("target_assy_start").whereNotNull("target_assy_finish")
@@ -211,7 +217,7 @@ export const prosesStore = async (req, res) => {
           if (!dueDateOk.cnt)
             return res.json({ status: false, title: "Gagal !!", message: `Due date pada SPK ${id} belum disetting pada semua proses.` });
 
-          const bongkar = await dbSPK("Scan_Spv").where("id_spk", id).where("section", "bongkar_analisis").orderBy("id", "desc").first();
+          const bongkar = await dbWJS("Scan_Spv").where("id_spk", id).where("section", "bongkar_analisis").orderBy("id", "desc").first();
           if (!bongkar)
             return res.json({ status: false, title: "Gagal !!", message: "Proses Bongkar belum dimulai" });
           if (bongkar.start && !bongkar.postpone && !bongkar.finish)
@@ -220,28 +226,28 @@ export const prosesStore = async (req, res) => {
             return res.json({ status: false, title: "Gagal !!", message: "Proses Bongkar sedang Postpone" });
 
           // bongkar selesai — cek order_part
-          const orderPart = await dbSPK("Scan_Spv").where("id_spk", id).where("section", "order_part").orderBy("id", "desc").first();
+          const orderPart = await dbWJS("Scan_Spv").where("id_spk", id).where("section", "order_part").orderBy("id", "desc").first();
           if (!orderPart) {
-            await dbSPK("SPK").where("id_spk", id).update({ status: "proses" });
+            await dbWJS("SPK").where("id_spk", id).update({ status: "proses" });
           } else {
             if (orderPart.start && !orderPart.postpone && !orderPart.finish)
               return res.json({ status: false, title: "Gagal !!", message: "Proses Order Part sedang berjalan" });
             if (orderPart.start && orderPart.postpone && !orderPart.finish)
               return res.json({ status: false, title: "Gagal !!", message: "Proses Order Part sedang Postpone" });
-            await dbSPK("SPK").where("id_spk", id).update({ status: "proses" });
+            await dbWJS("SPK").where("id_spk", id).update({ status: "proses" });
           }
         } else {
-          const dueDateOk = await dbSPK("SPK").where("id_spk", id)
+          const dueDateOk = await dbWJS("SPK").where("id_spk", id)
             .whereNotNull("target_machining_start").whereNotNull("target_machining_finish")
             .count("* as cnt").first();
           if (!dueDateOk.cnt)
             return res.json({ status: false, title: "Gagal !!", message: `Due date machining pada SPK ${id} belum disetting.` });
 
-          const running = await isRunning(dbSPK("Scan_Operator").where("id_spk", id)).count("* as cnt").first();
+          const running = await isRunning(dbWJS("Scan_Operator").where("id_spk", id)).count("* as cnt").first();
           if (running.cnt > 0)
             return res.json({ status: false, title: "Gagal !!", message: "Masih ada proses yang sedang berjalan tidak dapat diclose" });
 
-          await dbSPK("SPK").where("id_spk", id).update({ status: "proses" });
+          await dbWJS("SPK").where("id_spk", id).update({ status: "proses" });
         }
       }
     }
@@ -264,47 +270,47 @@ export const prosesStore2 = async (req, res) => {
     const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
 
     for (const id of ids) {
-      const spk = await dbSPK("SPK").where("id_spk", id).first();
+      const spk = await dbWJS("SPK").where("id_spk", id).first();
       if (!spk) return res.status(406).json({ status: false, title: "Gagal !!", message: `SPK ${id} tidak ditemukan` });
 
       if (status === "close") {
         if (spk.jenis === "repair") {
-          const scanSpv = await dbSPK("Scan_SPV").where("id_spk", id).count("* as cnt").first();
-          const scanOpt = await dbSPK("Scan_Operator").where("id_spk", id).count("* as cnt").first();
+          const scanSpv = await dbWJS("Scan_SPV").where("id_spk", id).count("* as cnt").first();
+          const scanOpt = await dbWJS("Scan_Operator").where("id_spk", id).count("* as cnt").first();
           if (!scanSpv.cnt || !scanOpt.cnt)
             return res.json({ status: false, title: "Gagal !!", message: "SPK belum mulai proses" });
 
-          const runningSpv = await isRunning(dbSPK("Scan_SPV").where("id_spk", id)).count("* as cnt").first();
-          const runningOpt = await isRunning(dbSPK("Scan_Operator").where("id_spk", id)).count("* as cnt").first();
+          const runningSpv = await isRunning(dbWJS("Scan_SPV").where("id_spk", id)).count("* as cnt").first();
+          const runningOpt = await isRunning(dbWJS("Scan_Operator").where("id_spk", id)).count("* as cnt").first();
           if (runningSpv.cnt > 0 || runningOpt.cnt > 0)
             return res.json({ status: false, title: "Gagal !!", message: "SPK sedang dalam proses tidak bisa di close" });
 
-          await dbSPK("SPK").where("id_spk", id).update({ status: "close", close_at: now });
+          await dbWJS("SPK").where("id_spk", id).update({ status: "close", close_at: now });
         } else {
-          const scanOpt = await dbSPK("Scan_Operator").where("id_spk", id).count("* as cnt").first();
+          const scanOpt = await dbWJS("Scan_Operator").where("id_spk", id).count("* as cnt").first();
           if (!scanOpt.cnt)
             return res.json({ status: false, title: "Gagal !!", message: "SPK belum mulai proses" });
 
-          const running = await isRunning(dbSPK("Scan_Operator").where("id_spk", id)).count("* as cnt").first();
+          const running = await isRunning(dbWJS("Scan_Operator").where("id_spk", id)).count("* as cnt").first();
           if (running.cnt > 0)
             return res.json({ status: false, title: "Gagal !!", message: "Masih ada proses yang sedang berjalan tidak dapat diclose" });
 
-          await dbSPK("SPK").where("id_spk", id).update({ status: "close", close_at: now });
+          await dbWJS("SPK").where("id_spk", id).update({ status: "close", close_at: now });
         }
       } else if (status === "proses") {
         if (spk.jenis === "repair") {
-          const bongkarCount = await dbSPK("Scan_Spv").where("id_spk", id).where("section", "bongkar_analisis").count("* as cnt").first();
+          const bongkarCount = await dbWJS("Scan_Spv").where("id_spk", id).where("section", "bongkar_analisis").count("* as cnt").first();
           if (!bongkarCount.cnt)
             return res.json({ status: false, title: "Gagal !!", message: "SPK belum mulai proses Bongkar Analisis" });
 
-          const bongkarRunning = await isRunning(dbSPK("Scan_Spv").where("id_spk", id).where("section", "bongkar_analisis")).count("* as cnt").first();
+          const bongkarRunning = await isRunning(dbWJS("Scan_Spv").where("id_spk", id).where("section", "bongkar_analisis")).count("* as cnt").first();
           if (bongkarRunning.cnt > 0)
             return res.json({ status: false, title: "Gagal !!", message: "SPK sedang dalam proses Bongkar tidak dapat diproses" });
 
           // cek drawing
-          const drawingCount = await dbSPK("Scan_Spv").where("id_spk", id).where("section", "drawing").count("* as cnt").first();
+          const drawingCount = await dbWJS("Scan_Spv").where("id_spk", id).where("section", "drawing").count("* as cnt").first();
           if (drawingCount.cnt > 0) {
-            const drawingRunning = await isRunning(dbSPK("Scan_Spv").where("id_spk", id).where("section", "drawing")).count("* as cnt").first();
+            const drawingRunning = await isRunning(dbWJS("Scan_Spv").where("id_spk", id).where("section", "drawing")).count("* as cnt").first();
             if (drawingRunning.cnt > 0)
               return res.json({ status: false, title: "Gagal !!", message: "SPK belum selesai proses drawing" });
           } else {
@@ -312,20 +318,20 @@ export const prosesStore2 = async (req, res) => {
           }
 
           // cek order_part
-          const orderCount = await dbSPK("Scan_Spv").where("id_spk", id).where("section", "order_part").count("* as cnt").first();
+          const orderCount = await dbWJS("Scan_Spv").where("id_spk", id).where("section", "order_part").count("* as cnt").first();
           if (orderCount.cnt > 0) {
-            const orderRunning = await isRunning(dbSPK("Scan_Spv").where("id_spk", id).where("section", "order_part")).count("* as cnt").first();
+            const orderRunning = await isRunning(dbWJS("Scan_Spv").where("id_spk", id).where("section", "order_part")).count("* as cnt").first();
             if (orderRunning.cnt > 0)
               return res.json({ status: false, title: "Gagal !!", message: "SPK belum selesai proses order part" });
           }
 
-          await dbSPK("SPK").where("id_spk", id).update({ status: "proses" });
+          await dbWJS("SPK").where("id_spk", id).update({ status: "proses" });
         } else {
-          const running = await isRunning(dbSPK("Scan_Operator").where("id_spk", id)).count("* as cnt").first();
+          const running = await isRunning(dbWJS("Scan_Operator").where("id_spk", id)).count("* as cnt").first();
           if (running.cnt > 0)
             return res.json({ status: false, title: "Gagal !!", message: "Masih ada proses yang sedang berjalan tidak dapat diclose" });
 
-          await dbSPK("SPK").where("id_spk", id).update({ status: "proses" });
+          await dbWJS("SPK").where("id_spk", id).update({ status: "proses" });
         }
       }
     }
@@ -353,7 +359,7 @@ export const updateDuedate = async (req, res) => {
       target_trial_start, target_trial_finish,
     } = req.body;
 
-    await dbSPK("SPK").where("id_spk", id).update({
+    await dbWJS("SPK").where("id_spk", id).update({
       target_analisis_start, target_analisis_finish,
       target_drawing_start, target_drawing_finish,
       target_order_start, target_order_finish,
@@ -587,7 +593,7 @@ export const listProsesSPK = async (req, res) => {
     const sorting = descending === "true" ? "desc" : "asc";
     const columnSort = sortBy ? `${sortBy} ${sorting}` : "a.id_spk asc";
 
-    let query = dbSPK("SPK as a")
+    let query = dbWJS("SPK as a")
       .select("a.*", "b.nama as dept")
       .leftJoin("Department as b", "a.id_dept", "b.id_dept")
       .where("a.status", "proses");
@@ -621,7 +627,7 @@ export const updateTarget = async (req, res) => {
   // #swagger.description = 'Update target selesai SPK'
   try {
     const { id_spk, target_selesai } = req.body;
-    await dbSPK("SPK").where("id_spk", id_spk).update({ target_selesai });
+    await dbWJS("SPK").where("id_spk", id_spk).update({ target_selesai });
     return res.status(200).json({ message: "Target selesai berhasil diupdate" });
   } catch (error) {
     logger(error, "PUT /terimaSPK/proses/target", req.body);
@@ -636,7 +642,7 @@ export const getDetailStatus = async (req, res) => {
   // #swagger.description = 'Detail status scan per PIC dan mesin untuk satu SPK'
   try {
     const { no_spk } = req.query;
-    const result = await dbSPK.raw(`
+    const result = await dbWJS.raw(`
       SELECT
         DISTINCT pic,
         (SELECT opt_name FROM Employee WHERE opt_nik = pic) nama_pic,
@@ -729,7 +735,7 @@ export const listCloseSPK = async (req, res) => {
     const sorting = descending === "true" ? "desc" : "asc";
     const columnSort = sortBy ? `${sortBy} ${sorting}` : "a.id_spk asc";
 
-    let query = dbSPK("SPK as a")
+    let query = dbWJS("SPK as a")
       .select("a.*", "b.nama as dept")
       .leftJoin("Department as b", "a.id_dept", "b.id_dept")
       .whereIn("a.status", ["tutup", "close"]);
@@ -763,7 +769,7 @@ export const reopenSPK = async (req, res) => {
   // #swagger.description = 'Reopen SPK dari status tutup/close ke proses'
   try {
     const { id } = req.body;
-    await dbSPK("SPK").where("id_spk", id).update({ status: "proses", close_at: null });
+    await dbWJS("SPK").where("id_spk", id).update({ status: "proses", close_at: null });
     return res.status(200).json({ message: "SPK berhasil di-reopen" });
   } catch (error) {
     logger(error, "POST /terimaSPK/close/reopen", req.body);

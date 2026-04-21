@@ -116,10 +116,12 @@ export const store = async (req, res) => {
       });
 
       // Catat ke Log_Scan
-      await dbWJS("Log_Scan").insert({
+      const query = dbWJS("Log_Scan").insert({
         log_id_scan: newId, log_pic: pic, log_flag: "S",
         created_at: now, updated_at: now,
       });
+
+      console.log(query.toString());
 
       return res.status(200).json({ message: "SPK dimulai" });
     }
