@@ -75,7 +75,7 @@ import { listMachines, saveMachine, deleteMachine } from "../controllers/master/
 import { listTemplates, getTemplateParts, getTemplateMachiningProses, saveTemplate, deleteTemplate } from "../controllers/master/templateController.js";
 import { listJobTypes, saveJobType, deleteJobType } from "../controllers/master/jobTypeController.js";
 import { listDepartments, getDepartmentSites, saveDepartment, deleteDepartment } from "../controllers/master/departmentController.js";
-import { listGroupDepartments, getAvailableDepartments, getGroupDepartments, saveGroupDepartment, deleteGroupDepartment } from "../controllers/master/groupDepartmentController.js";
+import { listGroupDepartments, getAvailableDepartments, getGroupDepartments, saveGroupDepartment, deleteGroupDepartment, getGroupMenuWithCount } from "../controllers/master/groupDepartmentController.js";
 import { listTJKN, listTJKNEmployee, getMonths, saveTJKN, saveTJKNEmployee, deleteTJKN, deleteTJKNEmployee } from "../controllers/master/tjknController.js";
 import { listEmployees, searchEmployeeByNIK, getSections, getPositions, saveEmployee, deleteEmployee, syncEmployeesFromPortal } from "../controllers/master/employeeController.js";
 import { listBreakTimes, updateBreakTime } from "../controllers/master/breakController.js";
@@ -232,6 +232,7 @@ router.post('/deleteDepartment', deleteDepartment);
 router.get('/listGroupDepartments', listGroupDepartments);
 router.get('/getAvailableDepartments', getAvailableDepartments);
 router.get('/getGroupDepartments', getGroupDepartments);
+router.get('/getGroupMenuWithCount', getGroupMenuWithCount);
 router.post('/saveGroupDepartment', saveGroupDepartment);
 router.post('/deleteGroupDepartment', deleteGroupDepartment);
 
