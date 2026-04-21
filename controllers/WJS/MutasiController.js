@@ -1425,8 +1425,8 @@ export const exportToExcel = async (req, res) => {
     const excelData = dataWithStatus.map(row => ({
       'ID': row.tr_arsip_id,
       'Nomor Tiket': row.tr_no_tiket,
-      'Tanggal Pengajuan': row.tr_tgl_pengajuan ? dayjs(row.tr_tgl_pengajuan).format('DD/MM/YYYY') : '',
-      'Tanggal Mutasi': row.tr_tgl_mutasi ? dayjs(row.tr_tgl_mutasi).format('DD/MM/YYYY') : '',
+      'Tanggal Pengajuan': row.tr_tgl_pengajuan ? dayjs(row.tr_tgl_pengajuan).format('DD-MM-YYYY') : '',
+      'Tanggal Mutasi': row.tr_tgl_mutasi ? dayjs(row.tr_tgl_mutasi).format('DD-MM-YYYY') : '',
       'Nama Arsip': row.content_name,
       'Kode Arsip': row.arsip_no,
       'Nomor Dokumen': row.content_doc,

@@ -792,7 +792,7 @@ export const approveByAtasan = async (req, res) => {
           security: doc.content_security || '-',
           chk_jenis: chkJenis.join(', ') || '-',
           arsip_kat: doc.arsip_kat || '-',
-          tgl_doc: doc.tgl_doc ? dayjs(doc.tgl_doc).format('DD/MM/YYYY') : '-',
+          tgl_doc: doc.tgl_doc ? dayjs(doc.tgl_doc).format('DD-MM-YYYY') : '-',
           div_nama: divData ? divData.div_nama : (emp ? emp.id_div : ''),
           catatan: catatan || '-',
           revisi_link: revisiLink,
@@ -866,7 +866,7 @@ export const approveByArsiparis = async (req, res) => {
           security: doc.content_security || '-',
           chk_jenis: chkJenis.join(', ') || '-',
           arsip_kat: doc.arsip_kat || '-',
-          tgl_doc: doc.tgl_doc ? dayjs(doc.tgl_doc).format('DD/MM/YYYY') : '-',
+          tgl_doc: doc.tgl_doc ? dayjs(doc.tgl_doc).format('DD-MM-YYYY') : '-',
           div_nama: divData ? divData.div_nama : '',
           catatan: catatan || '-',
           revisi_link: revisiLink,
@@ -961,7 +961,7 @@ export const submitRevisi = async (req, res) => {
           security: security || doc.content_security || '-',
           chk_jenis: chkJenis.join(', ') || '-',
           content_kat: content_kat || doc.arsip_kat || '-',
-          docdate: docdate || (doc.tgl_doc ? dayjs(doc.tgl_doc).format('DD/MM/YYYY') : '-'),
+          docdate: docdate || (doc.tgl_doc ? dayjs(doc.tgl_doc).format('DD-MM-YYYY') : '-'),
           owner_nama: emp ? emp.nama : nik,
           owner_nik: emp ? emp.id : nik,
           div_nama: divData ? divData.div_nama : '',
@@ -1406,10 +1406,10 @@ export const exportRenewableExcel = async (req, res) => {
       const row = sheet.addRow([
         r.content_name || '', r.folder_name || '', r.bu_name || '', r.div_nama || '',
         r.content_desc || '', r.owner_name || r.content_owner || '', r.keeper_name || r.content_keeper || '',
-        r.content_entrydate ? dayjs(String(r.content_entrydate).replace('Z', '')).format('DD/MM/YYYY HH:mm:ss') : '',
-        r.content_lastmodified ? dayjs(String(r.content_lastmodified).replace('Z', '')).format('DD/MM/YYYY HH:mm:ss') : '',
-        r.last_update ? dayjs(String(r.last_update).replace('Z', '')).format('DD/MM/YYYY HH:mm:ss') : 'Belum ada update',
-        r.content_duedate ? dayjs(r.content_duedate).format('DD/MM/YYYY') : '', status,
+        r.content_entrydate ? dayjs(String(r.content_entrydate).replace('Z', '')).format('DD-MM-YYYY HH:mm:ss') : '',
+        r.content_lastmodified ? dayjs(String(r.content_lastmodified).replace('Z', '')).format('DD-MM-YYYY HH:mm:ss') : '',
+        r.last_update ? dayjs(String(r.last_update).replace('Z', '')).format('DD-MM-YYYY HH:mm:ss') : 'Belum ada update',
+        r.content_duedate ? dayjs(r.content_duedate).format('DD-MM-YYYY') : '', status,
       ]);
       const bgColor = days <= 30 ? 'FFFFCDD2' : days <= 60 ? 'FFFFF9C4' : days <= 90 ? 'FFC8E6C9' : null;
       row.eachCell((cell) => {
@@ -1462,7 +1462,7 @@ export const exportRenewableCsv = async (req, res) => {
 
     const headers = ['Nama Document','Folder','Business Unit','Divisi','Description','Owner','Keeper','Date Created','Last Modified','Last Update','Due Date','Status'];
     const csvEscape = (v) => { const s = String(v ?? ''); return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s; };
-    const fmtD = (v) => v ? dayjs(String(v).replace('Z', '')).format('DD/MM/YYYY HH:mm:ss') : '';
+    const fmtD = (v) => v ? dayjs(String(v).replace('Z', '')).format('DD-MM-YYYY HH:mm:ss') : '';
 
     const rows = result.map(r => {
       const days = r.content_duedate ? dayjs(r.content_duedate).diff(dayjs(), 'day') : 999;
@@ -1471,7 +1471,7 @@ export const exportRenewableCsv = async (req, res) => {
         r.owner_name || r.content_owner, r.keeper_name || r.content_keeper,
         fmtD(r.content_entrydate), fmtD(r.content_lastmodified),
         r.last_update ? fmtD(r.last_update) : 'Belum ada update',
-        r.content_duedate ? dayjs(r.content_duedate).format('DD/MM/YYYY') : '', status
+        r.content_duedate ? dayjs(r.content_duedate).format('DD-MM-YYYY') : '', status
       ].map(csvEscape).join(',');
     });
 
@@ -1539,7 +1539,7 @@ export const exportRenewablePdf = async (req, res) => {
         const cells = [
           r.content_name || '', r.folder_name || '', r.bu_name || '', r.div_nama || '',
           r.owner_name || r.content_owner || '', r.keeper_name || r.content_keeper || '',
-          r.content_duedate ? dayjs(r.content_duedate).format('DD/MM/YYYY') : '', status,
+          r.content_duedate ? dayjs(r.content_duedate).format('DD-MM-YYYY') : '', status,
         ];
         return cells.map(c => bg ? { text: c, fillColor: bg } : c);
       })
