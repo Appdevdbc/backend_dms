@@ -68,7 +68,6 @@ import {
 } from "../controllers/master/generalController.js";
 import { getProfileImages, removeProfileImage, uploadProfileImage } from "../controllers/master/beautifyController.js";
 import { listCodeMaster, saveCodeMaster } from "../controllers/master/codeController.js";
-import { listPermintaan } from "../controllers/WJS/PermintaanController.js";
 import { listMachiningProses, saveMachiningProses, deleteMachiningProses } from "../controllers/master/machiningController.js";
 import { listParts, savePart, deletePart } from "../controllers/master/partsController.js";
 import { listMachines, saveMachine, deleteMachine } from "../controllers/master/machineController.js";

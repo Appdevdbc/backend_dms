@@ -2,10 +2,7 @@ import express from "express";
 import multer from "multer";
 import master from "./master.js"
 import logRouter from './logs.js';
-import dmsRouter from './wjs.js';
-import agreementRouter from './agreement.routes.js';
-import documentViewRouter from './document-view.routes.js';
-import documentCancelRouter from './document-cancel.routes.js';
+import wjsRouter from './wjs.js';
 import authRouter from '../routes/auth.js';
 import spkRouter from './spk.js';
 import reportRouter from './report.js';
@@ -59,11 +56,8 @@ const upload = multer({
 //});
 router.use('/',master)
 router.use('/logs',logRouter)
-router.use('/dms',dmsRouter)
+router.use('/wjs',wjsRouter)
 router.use('/wjs/auth',authRouter)
-router.use('/agreements',agreementRouter)
-router.use('/document-view',documentViewRouter)
-router.use('/document-cancel',documentCancelRouter)
 router.use('/',spkRouter)
 router.use('/',reportRouter)
 

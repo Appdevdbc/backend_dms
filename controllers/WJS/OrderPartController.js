@@ -23,8 +23,122 @@ export const getList = async (req, res) => {
     if (!VALID_SECTIONS.includes(section))
       return res.status(400).json({ type: "error", message: "Section tidak valid" });
 
-    const result = await getScanList(section);
-    return res.status(200).json(Array.isArray(result) ? result : result[0] ?? []);
+    const today = dayjs().format("YYYY-MM-DD");
+    const start = section === "bongkar_analisis" || section === "assy" ? "2023-01-01" : today;
+
+    // Without pagination - use function for backward compatibility
+    if (req.query.rowsPerPage == null) {
+      const result = await getScanList(section);
+      return res.status(200).json(Array.isArray(result) ? result : result[0] ?? []);
+    }
+
+    // With pagination - query base table directly for performance
+    const sorting = req.query.descending === "true" ? "desc" : "asc";
+    const sortBy = req.query.sortBy || "id_spk";
+    const page = Math.floor(req.query.page) || 1;
+    const perPage = Math.floor(req.query.rowsPerPage) || 10;
+    const offset = (page - 1) * perPage;
+
+    // Build base query - query Scan_SPV table directly with joins
+    let baseQuery = dbWJS("Scan_SPV as s")
+      .select(
+        "s.id",
+        "s.id_spk",
+        "s.pic",
+        "s.id_job",
+        "s.section",
+        "s.start",
+        "s.postpone",
+        "s.finish",
+        "s.part_code",
+        dbWJS.raw("ISNULL(e.opt_name, '') as nama_pic"),
+        dbWJS.raw("ISNULL(e.opt_name, '') as opt_name"),
+        dbWJS.raw("ISNULL(j.nama_job, '') as nama_job"),
+        dbWJS.raw(`
+          CASE 
+            WHEN s.finish IS NOT NULL THEN 'Finish'
+            WHEN s.postpone IS NOT NULL THEN 'Postpone'
+            WHEN s.start IS NOT NULL THEN 'Start'
+            ELSE ''
+          END as status
+        `),
+        dbWJS.raw(`
+          CASE 
+            WHEN s.finish IS NOT NULL THEN 
+              DATEDIFF(MINUTE, s.start, s.finish)
+            WHEN s.postpone IS NOT NULL THEN 
+              DATEDIFF(MINUTE, s.start, s.postpone)
+            WHEN s.start IS NOT NULL THEN 
+              DATEDIFF(MINUTE, s.start, GETDATE())
+            ELSE 0
+          END as total
+        `),
+        dbWJS.raw(`
+          CASE 
+            WHEN s.finish IS NOT NULL THEN 
+              CAST(DATEDIFF(MINUTE, s.start, s.finish) / 60.0 AS DECIMAL(10,2))
+            WHEN s.postpone IS NOT NULL THEN 
+              CAST(DATEDIFF(MINUTE, s.start, s.postpone) / 60.0 AS DECIMAL(10,2))
+            WHEN s.start IS NOT NULL THEN 
+              CAST(DATEDIFF(MINUTE, s.start, GETDATE()) / 60.0 AS DECIMAL(10,2))
+            ELSE 0
+          END as jamTotal
+        `)
+      )
+      .leftJoin("Employee as e", "s.pic", "e.opt_nik")
+      .leftJoin("Job_Type as j", "s.id_job", "j.id_job")
+      .where("s.section", section)
+      .whereRaw("s.start >= ? AND s.start < DATEADD(day, 1, ?)", [start, today]);
+
+    // Apply filter if provided
+    if (req.query.filter) {
+      baseQuery = baseQuery.where((builder) => {
+        builder
+          .where("s.id_spk", "like", `%${req.query.filter}%`)
+          .orWhere("s.pic", "like", `%${req.query.filter}%`)
+          .orWhere("j.nama_job", "like", `%${req.query.filter}%`)
+          .orWhere("e.opt_name", "like", `%${req.query.filter}%`);
+      });
+    }
+
+    // Get total count - build separate count query
+    const countQuery = dbWJS("Scan_SPV as s")
+      .leftJoin("Employee as e", "s.pic", "e.opt_nik")
+      .leftJoin("Job_Type as j", "s.id_job", "j.id_job")
+      .where("s.section", section)
+      .whereRaw("s.start >= ? AND s.start < DATEADD(day, 1, ?)", [start, today]);
+    
+    if (req.query.filter) {
+      countQuery.where((builder) => {
+        builder
+          .where("s.id_spk", "like", `%${req.query.filter}%`)
+          .orWhere("s.pic", "like", `%${req.query.filter}%`)
+          .orWhere("j.nama_job", "like", `%${req.query.filter}%`)
+          .orWhere("e.opt_name", "like", `%${req.query.filter}%`);
+      });
+    }
+    
+    const [{ total: totalCount }] = await countQuery.count("s.id as total");
+
+    // Get paginated data
+    const data = await baseQuery
+      .orderBy(sortBy, sorting)
+      .offset(offset)
+      .limit(perPage);
+
+    const response = {
+      data: data,
+      pagination: {
+        total: totalCount,
+        perPage: perPage,
+        currentPage: page,
+        lastPage: Math.ceil(totalCount / perPage),
+        from: offset + 1,
+        to: Math.min(offset + perPage, totalCount),
+      },
+    };
+
+    return res.status(200).json(response);
   } catch (error) {
     logger(error, "GET /orderPart/list", req.query);
     return res.status(406).json(getErrorResponse(error));
