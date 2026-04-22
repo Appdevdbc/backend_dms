@@ -484,8 +484,10 @@ export const createMachining = async (req, res) => {
 
     await trx("SPK_Part").insert({
       id_spk, id_part, proses: cleanProses,
-      created_by: empid, created_at: now,
-      updated_by: empid, updated_at: now,
+      // created_by: empid, 
+      created_at: now,
+      // updated_by: empid, 
+      updated_at: now,
     });
 
     if (saveTemplate === "Y") {
