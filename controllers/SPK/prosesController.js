@@ -142,22 +142,88 @@ export const getSPKDetailStatus = async (req, res) => {
   // #swagger.description = 'Get SPK process detail status'
   try {
     const { id_spk } = req.body;
-    
-    const details = await dbWJS('Scan_Operator')
-      .select(
-        'Scan_Operator.id',
-        'Scan_Operator.id_spk',
-        'Scan_Operator.pic',
-        'Scan_Operator.id_mesin as mesin',
-        'Scan_Operator.start',
-        'Scan_Operator.finish',
-        'Scan_Operator.postpone',
-        dbWJS.raw('DATEDIFF(HOUR, Scan_Operator.start, ISNULL(Scan_Operator.finish, GETDATE())) as total_jam')
-      )
-      .where('Scan_Operator.id_spk', id_spk)
-      .orderBy('Scan_Operator.id', 'asc');
-    
-    return res.status(200).json(details);
+
+    if (!id_spk) {
+      return res.status(400).json({ type: 'error', message: 'id_spk is required' });
+    }
+
+    const result = await dbWJS.raw(`
+      SELECT
+        DISTINCT pic,
+        (SELECT opt_name FROM Employee WHERE opt_nik = pic) AS nama_pic,
+        id_mesin AS mesin,
+        (SELECT nama FROM Machine WHERE id = id_mesin) AS nama_mesin,
+        (
+          SELECT SUM(
+            CASE
+              WHEN start IS NOT NULL AND postpone IS NOT NULL
+                THEN CAST(CAST(DATEDIFF(SECOND, start, postpone) AS FLOAT)/3600 AS DECIMAL(10,1))
+              WHEN start IS NOT NULL AND finish IS NOT NULL
+                THEN CAST(CAST(DATEDIFF(SECOND, start, finish) AS FLOAT)/3600 AS DECIMAL(10,1))
+              WHEN start IS NOT NULL AND postpone IS NULL AND finish IS NULL
+                THEN CAST(CAST(DATEDIFF(SECOND, start, GETDATE()) AS FLOAT)/3600 AS DECIMAL(10,1))
+              ELSE 0
+            END
+          )
+          FROM Scan_Operator
+          WHERE id_spk = s.id_spk AND pic = s.pic AND id_mesin = s.id_mesin
+        ) AS total_jam,
+        (
+          SELECT TOP 1
+            CASE
+              WHEN start IS NOT NULL AND postpone IS NOT NULL THEN 'Postpone'
+              WHEN start IS NOT NULL AND finish IS NOT NULL THEN 'Finish'
+              WHEN start IS NULL THEN 'Belum Start'
+              WHEN start IS NOT NULL AND postpone IS NULL AND finish IS NULL THEN 'Start'
+            END
+          FROM Scan_Operator
+          WHERE id_spk = s.id_spk AND pic = s.pic AND id_mesin = s.id_mesin
+          ORDER BY id DESC
+        ) AS status
+      FROM Scan_Operator s
+      WHERE id_spk = ?
+
+      UNION ALL
+
+      SELECT
+        DISTINCT pic,
+        (SELECT opt_name FROM Employee WHERE opt_nik = pic) AS nama_pic,
+        '' AS mesin,
+        '' AS nama_mesin,
+        (
+          SELECT SUM(
+            CASE
+              WHEN start IS NOT NULL AND postpone IS NOT NULL
+                THEN CAST(CAST(DATEDIFF(SECOND, start, postpone) AS FLOAT)/3600 AS DECIMAL(10,1))
+              WHEN start IS NOT NULL AND finish IS NOT NULL
+                THEN CAST(CAST(DATEDIFF(SECOND, start, finish) AS FLOAT)/3600 AS DECIMAL(10,1))
+              WHEN start IS NOT NULL AND postpone IS NULL AND finish IS NULL
+                THEN CAST(CAST(DATEDIFF(SECOND, start, GETDATE()) AS FLOAT)/3600 AS DECIMAL(10,1))
+              ELSE 0
+            END
+          )
+          FROM Scan_SPV
+          WHERE id_spk = s.id_spk AND pic = s.pic
+        ) AS total_jam,
+        (
+          SELECT TOP 1
+            CASE
+              WHEN start IS NOT NULL AND postpone IS NOT NULL THEN 'Postpone'
+              WHEN start IS NOT NULL AND finish IS NOT NULL THEN 'Finish'
+              WHEN start IS NULL THEN 'Belum Start'
+              WHEN start IS NOT NULL AND postpone IS NULL AND finish IS NULL THEN 'Start'
+            END
+          FROM Scan_SPV
+          WHERE id_spk = s.id_spk AND pic = s.pic
+          ORDER BY id DESC
+        ) AS status
+      FROM Scan_SPV s
+      WHERE id_spk = ?
+
+      ORDER BY nama_pic
+    `, [id_spk, id_spk]);
+
+    return res.status(200).json(result);
   } catch (error) {
     logger(error, 'POST /getSPKDetailStatus', req.body);
     return res.status(406).json(getErrorResponse(error));
