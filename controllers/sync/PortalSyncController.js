@@ -1,0 +1,191 @@
+import dayjs from "dayjs";
+import { db } from "../../config/db.js";
+import { logger } from "../../helpers/logger.js";
+import { getErrorResponse } from "../../helpers/utils.js";
+
+// ─── Middleware: validate API key ─────────────────────────────────────────────
+export const validateApiKey = (keyEnv) => (req, res, next) => {
+  const key = req.headers["x-api-key"];
+  if (!key || key !== process.env[keyEnv]) {
+    return res.status(401).json({ error: "Unauthorized - Invalid or missing x-api-key header" });
+  }
+  next();
+};
+
+// ─── GET /api/v1/roles ────────────────────────────────────────────────────────
+export const getRoles = async (req, res) => {
+  try {
+    const roles = await db("group_aplikasi")
+      .select("grp_id as role_id", "grp_name as role_name");
+
+    return res.status(200).json(
+      roles.map((r) => ({
+        role_id: r.role_id,
+        role_name: r.role_name,
+        is_active: true,
+      }))
+    );
+  } catch (error) {
+    logger(error, "GET /api/v1/roles");
+    return res.status(500).json(getErrorResponse(error));
+  }
+};
+
+// ─── POST /api/v1/sync-users ──────────────────────────────────────────────────
+export const syncUsers = async (req, res) => {
+  const users = req.body.users;
+  if (!users || !Array.isArray(users) || users.length === 0) {
+    return res.status(400).json({ error: "users array is required and cannot be empty" });
+  }
+
+  const appsId      = req.body.apps_id ?? "";
+  const syncType    = req.body.sync_type ?? "MANUAL";
+  const triggeredBy = req.body.triggered_by ?? "SYSTEM";
+  const nonAktifLain = req.body.non_aktif_user_lain === true || req.body.non_aktif_user_lain === "true";
+  const appCode     = process.env.APP_FLAG ?? "dbc-wjs-apps";
+  const startedAt   = dayjs();
+  const results     = [];
+  const processedEmpIds = [];
+
+  for (const userData of users) {
+    const empId = userData.employee_id ?? null;
+
+    if (!empId) {
+      results.push(buildResult(appsId, syncType, triggeredBy, startedAt, userData, "ERROR", "employee_id is required"));
+      continue;
+    }
+
+    processedEmpIds.push(empId);
+    const roleId   = userData.role_id ?? null;
+    const isActive = userData.is_active !== undefined ? Boolean(userData.is_active) : true;
+
+    try {
+      // Upsert user in users table
+      let user = await db("users").where("emp_id", empId).first();
+      if (!user) {
+        const maxId = (await db("users").max("id as maxId").first())?.maxId ?? 0;
+        await db("users").insert({
+          id:         maxId + 1,
+          emp_id:     empId,
+          name:       userData.employee_nik ?? empId,
+          first_name: userData.employee_name ?? "",
+          last_name:  "",
+          email:      userData.employee_email ?? null,
+          password:   "",
+          created_at: dayjs().format("YYYY-MM-DD HH:mm:ss"),
+          updated_at: dayjs().format("YYYY-MM-DD HH:mm:ss"),
+        });
+        user = await db("users").where("emp_id", empId).first();
+      }
+
+      // Check users_aplikasi record
+      const existing = await db("users_aplikasi")
+        .where("usrapp_usr_id", user.id)
+        .where("usrapp_app_id", appCode)
+        .first();
+
+      const oldRole     = existing?.usrapp_grp_id ?? null;
+      const oldIsActive = existing ? true : null;
+      let action;
+
+      if (!isActive) {
+        if (existing) {
+          await db("users_aplikasi")
+            .where("usrapp_usr_id", user.id)
+            .where("usrapp_app_id", appCode)
+            .delete();
+          action = "UPDATE";
+        } else {
+          action = "SKIP";
+        }
+      } else if (!existing) {
+        await db("users_aplikasi").insert({
+          usrapp_usr_id:     user.id,
+          usrapp_app_id:     appCode,
+          usrapp_grp_id:     roleId,
+          usrapp_created_by: null,
+          created_at:        dayjs().format("YYYY-MM-DD HH:mm:ss"),
+          updated_at:        dayjs().format("YYYY-MM-DD HH:mm:ss"),
+        });
+        action = "INSERT";
+      } else if (existing.usrapp_grp_id != roleId) {
+        await db("users_aplikasi")
+          .where("usrapp_usr_id", user.id)
+          .where("usrapp_app_id", appCode)
+          .update({
+            usrapp_grp_id:     roleId,
+            usrapp_updated_by: null,
+            updated_at:        dayjs().format("YYYY-MM-DD HH:mm:ss"),
+          });
+        action = "UPDATE";
+      } else {
+        action = "SKIP";
+      }
+
+      results.push(buildResult(appsId, syncType, triggeredBy, startedAt, userData, "SUCCESS", null, action, oldRole, oldIsActive));
+    } catch (err) {
+      results.push(buildResult(appsId, syncType, triggeredBy, startedAt, userData, "ERROR", err.message));
+    }
+  }
+
+  // Deactivate users not in payload if requested
+  if (nonAktifLain && processedEmpIds.length > 0) {
+    const keepIds = await db("users").whereIn("emp_id", processedEmpIds).pluck("id");
+    await db("users_aplikasi")
+      .where("usrapp_app_id", appCode)
+      .whereNotIn("usrapp_usr_id", keepIds)
+      .delete();
+  }
+
+  const endedAt   = dayjs();
+  const requestId = `SYNC-${startedAt.unix()}-${Math.random().toString(36).substr(2, 6)}`;
+  const inserted  = results.filter((r) => r.action === "INSERT").length;
+  const updated   = results.filter((r) => r.action === "UPDATE").length;
+  const skipped   = results.filter((r) => r.action === "SKIP").length;
+  const errors    = results.filter((r) => r.status === "ERROR").length;
+
+  const summary = {
+    status:   errors > 0 && errors === results.length ? "ERROR" : "SUCCESS",
+    inserted, updated, skipped, errors,
+    total:    results.length,
+  };
+
+  const finalResults = results.map((r) => ({
+    ...r,
+    sync_ended_at: endedAt.toISOString(),
+    duration_ms:   endedAt.diff(startedAt),
+    metadata: {
+      sync_summary: summary,
+      total_users:  results.length,
+      request_id:   requestId,
+      changed_at:   endedAt.toISOString(),
+    },
+  }));
+
+  return res.status(200).json(finalResults);
+};
+
+// ─── Helper ───────────────────────────────────────────────────────────────────
+function buildResult(appsId, syncType, triggeredBy, startedAt, userData, status, errorMsg = null, action = null, oldRole = null, oldIsActive = null) {
+  return {
+    apps_id:         appsId,
+    sync_type:       syncType,
+    sync_started_at: startedAt.toISOString(),
+    sync_ended_at:   null,
+    duration_ms:     null,
+    triggered_by:    triggeredBy,
+    employee_id:     userData.employee_id ?? null,
+    employee_nik:    userData.employee_nik ?? null,
+    employee_name:   userData.employee_name ?? null,
+    employee_email:  userData.employee_email ?? null,
+    role_apps:       userData.role_apps ?? null,
+    role_id:         userData.role_id ?? null,
+    is_active:       userData.is_active ?? true,
+    old_role:        oldRole,
+    old_is_active:   oldIsActive,
+    action:          action ?? "ERROR",
+    status,
+    error_message:   errorMsg,
+    metadata:        null,
+  };
+}
