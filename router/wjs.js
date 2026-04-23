@@ -13,6 +13,7 @@ import {
 } from "../controllers/WJS/OrderPartController.js";
 import {
   getDashboardPerformance,
+  getSpkMold,
   getSpkMonitor,
 } from "../controllers/WJS/DashboardController.js";
 import {
@@ -96,6 +97,7 @@ router.post('/orderPart/store', storeOrderPart);
 
 // ─── Dashboard routes ─────────────────────────────────────────────────────────
 router.get('/dashboard/performance', getDashboardPerformance);
+router.get('/dashboard/spk-mold', getSpkMold);
 router.get('/dashboard/spk-monitor', getSpkMonitor);
 
 // ─── TerimaSPK routes ─────────────────────────────────────────────────────────

@@ -71,6 +71,19 @@ export const createTerimaSPK = async (req, res) => {
   const trx = await dbWJS.transaction();
   try {
     const { tanggal, tipe, jenis, target_selesai, subject, id_dept, creator } = req.body;
+
+    // Validasi mandatory
+    const missing = [];
+    if (!tanggal) missing.push("Tanggal");
+    if (!tipe) missing.push("Tipe");
+    if (!jenis) missing.push("Jenis");
+    if (!target_selesai) missing.push("Target Selesai");
+    if (!subject) missing.push("Subject");
+    if (!id_dept) missing.push("Departemen");
+    if (!creator) missing.push("Creator");
+    if (missing.length)
+      return res.status(400).json({ type: "error", message: `Field berikut wajib diisi: ${missing.join(", ")}` });
+
     const empid = decrypt(creator);
     const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
 
@@ -154,15 +167,50 @@ export const deleteTerimaSPK = async (req, res) => {
   // #swagger.tags = ['TerimaSPK']
   /* #swagger.security = [{ "bearerAuth": [] }] */
   // #swagger.description = 'Hapus SPK, mendukung single (id) dan bulk (ids[])'
+  const trx = await dbWJS.transaction();
   try {
     const { id, ids } = req.body;
-    if (ids && Array.isArray(ids)) {
-      await dbWJS("SPK").whereIn("id_spk", ids).delete();
-    } else {
-      await dbWJS("SPK").where("id_spk", id).delete();
+    const spkIds = ids && Array.isArray(ids) ? ids : [id];
+
+    for (const spkId of spkIds) {
+      // Cek apakah ada data Machining Proses (SPK_Part) yang terkait
+      const partCount = await trx("SPK_Part").where("id_spk", spkId).count("* as cnt").first();
+      if (partCount.cnt > 0) {
+        await trx.rollback();
+        return res.status(406).json({
+          type: "error",
+          message: `SPK ${spkId} tidak bisa dihapus karena masih memiliki ${partCount.cnt} data Machining Proses. Silakan hapus data Machining Proses terlebih dahulu melalui menu Machining Proses pada SPK tersebut.`,
+        });
+      }
+
+      // Cek apakah ada data Scan Operator yang terkait
+      const scanOptCount = await trx("Scan_Operator").where("id_spk", spkId).count("* as cnt").first();
+      if (scanOptCount.cnt > 0) {
+        await trx.rollback();
+        return res.status(406).json({
+          type: "error",
+          message: `SPK ${spkId} tidak bisa dihapus karena sudah memiliki data scan operator. SPK yang sudah pernah diproses tidak dapat dihapus.`,
+        });
+      }
+
+      // Cek apakah ada data Scan SPV yang terkait
+      const scanSpvCount = await trx("Scan_SPV").where("id_spk", spkId).count("* as cnt").first();
+      if (scanSpvCount.cnt > 0) {
+        await trx.rollback();
+        return res.status(406).json({
+          type: "error",
+          message: `SPK ${spkId} tidak bisa dihapus karena sudah memiliki data scan supervisor. SPK yang sudah pernah diproses tidak dapat dihapus.`,
+        });
+      }
     }
+
+    // Semua validasi lolos, hapus SPK
+    await trx("SPK").whereIn("id_spk", spkIds).delete();
+    await trx.commit();
+
     return res.status(200).json({ message: "SPK berhasil dihapus" });
   } catch (error) {
+    await trx.rollback();
     logger(error, "POST /terimaSPK/delete", req.body);
     return res.status(406).json(getErrorResponse(error));
   }
@@ -493,7 +541,8 @@ export const createMachining = async (req, res) => {
     if (saveTemplate === "Y") {
       await trx("Template").insert({
         id_plate: id_part, proses: cleanProses,
-        created_by: empid, created_at: now,
+        // created_by: empid, 
+        created_at: now,
       });
     }
 
