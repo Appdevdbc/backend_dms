@@ -178,105 +178,29 @@ export const getSpkMonitor = async (req, res) => {
   try {
     const { page = 1, rowsPerPage = 10, sortBy, descending, filter } = req.query;
 
-    // Base CTE query
-    const baseSql = `
-      WITH spk_monitor AS (
-        SELECT
-          a.section,
-          a.pic,
-          c.opt_name,
-          a.id_spk,
-          CASE
-            WHEN section = 'bongkar_analisis' THEN b.target_analisis_start
-            WHEN section = 'drawing'          THEN b.target_drawing_start
-            WHEN section = 'machining'        THEN b.target_machining_start
-            WHEN section = 'assy'             THEN b.target_assy_start
-            WHEN section = 'trial'            THEN b.target_trial_start
-          END plan_start,
-          CASE
-            WHEN section = 'bongkar_analisis' THEN b.target_analisis_finish
-            WHEN section = 'drawing'          THEN b.target_drawing_finish
-            WHEN section = 'machining'        THEN b.target_machining_finish
-            WHEN section = 'assy'             THEN b.target_assy_finish
-            WHEN section = 'trial'            THEN b.target_trial_finish
-          END plan_finish,
-          CASE
-            WHEN section = 'machining'
-              THEN (SELECT start FROM Scan_Operator WHERE id = (SELECT MIN(id) FROM Scan_Operator WHERE pic = a.pic AND id_spk = a.id_spk))
-            ELSE (SELECT start FROM Scan_SPV WHERE id = (SELECT MIN(id) FROM Scan_SPV WHERE section = a.section AND pic = a.pic AND id_spk = a.id_spk))
-          END act_start,
-          CASE
-            WHEN section = 'machining'
-              THEN (SELECT finish FROM Scan_Operator WHERE id = (SELECT MAX(id) FROM Scan_Operator WHERE pic = a.pic AND id_spk = a.id_spk))
-            ELSE (SELECT finish FROM Scan_SPV WHERE id = (SELECT MAX(id) FROM Scan_SPV WHERE section = a.section AND pic = a.pic AND id_spk = a.id_spk))
-          END act_finish
-        FROM (
-          SELECT id, 'machining' section, pic, id_spk, start, finish FROM Scan_Operator
-          UNION
-          SELECT id, section, pic, id_spk, start, finish FROM Scan_SPV
-        ) a
-        INNER JOIN SPK b ON a.id_spk = b.id_spk
-        INNER JOIN Employee c ON a.pic = c.opt_nik
-        WHERE
-          (
-            MONTH(GETDATE()) - 1 = CASE
-              WHEN section = 'bongkar_analisis' THEN MONTH(b.target_analisis_start)
-              WHEN section = 'drawing'          THEN MONTH(b.target_drawing_start)
-              WHEN section = 'machining'        THEN MONTH(b.target_machining_start)
-              WHEN section = 'assy'             THEN MONTH(b.target_assy_start)
-              WHEN section = 'trial'            THEN MONTH(b.target_trial_start)
-            END
-            AND YEAR(GETDATE()) = CASE
-              WHEN section = 'bongkar_analisis' THEN YEAR(b.target_analisis_start)
-              WHEN section = 'drawing'          THEN YEAR(b.target_drawing_start)
-              WHEN section = 'machining'        THEN YEAR(b.target_machining_start)
-              WHEN section = 'assy'             THEN YEAR(b.target_assy_start)
-              WHEN section = 'trial'            THEN YEAR(b.target_trial_start)
-            END
-          )
-          OR CASE
-            WHEN section = 'machining'
-              THEN (SELECT finish FROM Scan_Operator WHERE id = (SELECT MAX(id) FROM Scan_Operator WHERE pic = a.pic AND id_spk = a.id_spk))
-            ELSE (SELECT finish FROM Scan_SPV WHERE id = (SELECT MAX(id) FROM Scan_SPV WHERE section = a.section AND pic = a.pic AND id_spk = a.id_spk))
-          END IS NULL
-        GROUP BY
-          a.section, a.pic, c.opt_name, a.id_spk,
-          b.target_analisis_start, b.target_drawing_start, b.target_machining_start, b.target_assy_start, b.target_trial_start,
-          b.target_analisis_finish, b.target_drawing_finish, b.target_machining_finish, b.target_assy_finish, b.target_trial_finish
-      )
-    `;
-
-    // Build WHERE clause for filter
-    let filterClause = "";
-    const filterParams = [];
-    if (filter) {
-      filterClause = `WHERE CAST(id_spk AS VARCHAR) LIKE ? OR opt_name LIKE ? OR section LIKE ?`;
-      filterParams.push(`%${filter}%`, `%${filter}%`, `%${filter}%`);
-    }
-
-    // Sorting
     const allowedSortCols = ["id_spk", "opt_name", "section", "plan_start", "plan_finish", "act_start", "act_finish"];
     const sortCol = allowedSortCols.includes(sortBy) ? sortBy : "id_spk";
     const sortDir = descending === "true" ? "DESC" : "ASC";
-
-    // Count total
-    const countResult = await dbWJS.raw(
-      `${baseSql} SELECT COUNT(*) AS total FROM spk_monitor ${filterClause}`,
-      filterParams
-    );
-    const total = countResult[0]?.total ?? 0;
-
-    // Paginated data
     const perPage = parseInt(rowsPerPage, 10) || 10;
     const currentPage = parseInt(page, 10) || 1;
     const offset = (currentPage - 1) * perPage;
 
-    const dataResult = await dbWJS.raw(
-      `${baseSql} SELECT * FROM spk_monitor ${filterClause} ORDER BY ${sortCol} ${sortDir} OFFSET ${offset} ROWS FETCH NEXT ${perPage} ROWS ONLY`,
-      [...filterParams]
-    );
+    // Show all unfinished SPK (act_finish IS NULL) + filter
+    let whereClause = `WHERE act_finish IS NULL`;
+    const filterParams = [];
 
-    const rows = Array.isArray(dataResult) ? dataResult : dataResult[0] ?? [];
+    if (filter) {
+      whereClause += ` AND (CAST(id_spk AS VARCHAR) LIKE ? OR opt_name LIKE ? OR section LIKE ?)`;
+      filterParams.push(`%${filter}%`, `%${filter}%`, `%${filter}%`);
+    }
+
+    const [countResult, dataResult] = await Promise.all([
+      dbWJS.raw(`SELECT COUNT(*) AS total FROM vw_spk_monitor ${whereClause}`, filterParams),
+      dbWJS.raw(`SELECT * FROM vw_spk_monitor ${whereClause} ORDER BY ${sortCol} ${sortDir}, section ASC, pic ASC OFFSET ${offset} ROWS FETCH NEXT ${perPage} ROWS ONLY`, [...filterParams]),
+    ]);
+
+    const total = countResult[0]?.total ?? 0;
+    const rows  = Array.isArray(dataResult) ? dataResult : dataResult[0] ?? [];
 
     return res.status(200).json({
       data: rows,
@@ -293,3 +217,8 @@ export const getSpkMonitor = async (req, res) => {
     return res.status(406).json(getErrorResponse(error));
   }
 };
+
+
+
+
+
