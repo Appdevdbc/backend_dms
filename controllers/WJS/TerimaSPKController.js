@@ -150,7 +150,8 @@ export const updateTerimaSPK = async (req, res) => {
     await trx("SPK").where("id_spk", id).update({
       tanggal, tipe, jenis, target_selesai, subject,
       id_dept, id_group: groupDept.grp_id,
-      updated_by: empid, updated_at: now,
+      // updated_by: empid, 
+      // updated_at: now,
     });
 
     await trx.commit();
@@ -938,6 +939,27 @@ export const cetakSPK = async (req, res) => {
       ]),
     ];
 
+    // ─── Generate barcode Code128 dengan bwip-js ──────────────────────────────
+    let barcodeElement;
+    try {
+      const bwipjs = (await import("bwip-js")).default;
+      const barcodeBuffer = await bwipjs.toBuffer({
+        bcid:         "code128",
+        text:         String(spk.id_spk),
+        scale:        2,
+        height:       12,
+        includetext:  false,
+        paddingwidth: 2,
+      });
+      barcodeElement = {
+        image: `data:image/png;base64,${barcodeBuffer.toString("base64")}`,
+        width: 130,
+        margin: [30, 0, 0, 10],
+      };
+    } catch {
+      barcodeElement = { text: `Barcode: ${spk.id_spk}`, fontSize: 9, margin: [30, 0, 0, 10] };
+    }
+
     const docDefinition = {
       pageSize: "A4",
       pageMargins: [40, 40, 40, 40],
@@ -1042,12 +1064,8 @@ export const cetakSPK = async (req, res) => {
           margin: [0, 0, 0, 10],
         },
 
-        // ─── Barcode (teks pengganti — pdfmake tidak support DNS1D) ──────────
-        {
-          text: `Barcode: ${spk.id_spk}`,
-          fontSize: 9,
-          margin: [30, 0, 0, 10],
-        },
+        // ─── Barcode Code128 (menggunakan bwip-js) ───────────────────────────
+        barcodeElement,
 
         // ─── Tabel Plan/Actual ────────────────────────────────────────────────
         {
