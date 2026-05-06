@@ -25,6 +25,7 @@ export const searchEmployeeByNIK = async (req, res) => {
     const employee = await dbPortal('portal.dbo.ptl_hris')
       .select('Emp_Id', 'user_newid', 'user_name', 'user_active')
       .where('user_newid', nik)
+      .where('user_active', 'Active')
       .first();
     
     if (!employee) {
@@ -60,7 +61,7 @@ export const listEmployees = async (req, res) => {
     if (!rowsPerPage) {
       const response = await dbWJS('Employee')
         .select('id', 'emp_id', 'opt_nik', 'opt_name', 'opt_section', 'opt_jabatan')
-        .whereNull('opt_status')
+        .where(q => q.whereNull('opt_status').orWhere('opt_status', 1))
         .orderBy('opt_name', 'asc');
       
       return res.status(200).json(response);
@@ -74,7 +75,7 @@ export const listEmployees = async (req, res) => {
     
     let query = dbWJS('Employee')
       .select('id', 'emp_id', 'opt_nik', 'opt_name', 'opt_section', 'opt_jabatan', 'created_at', 'updated_at')
-      .whereNull('opt_status');
+      .where(q => q.whereNull('opt_status').orWhere('opt_status', 1));
     
     // Apply filter if provided
     if (filter) {
@@ -187,28 +188,37 @@ export const saveEmployee = async (req, res) => {
       // Check if emp_id already exists
       const existing = await dbWJS('Employee')
         .where('emp_id', emp_id)
-        .whereNull('opt_status')
         .first();
-      
-      if (existing) {
+      if (existing && existing.opt_status==null) {
         return res.status(406).json({
           type: 'error',
           message: 'Employee ID already exists'
         });
+      }else if(existing && existing.opt_status!=null){
+        await dbWJS('Employee')
+          .where('emp_id', emp_id)
+          .update({
+            opt_nik,
+            opt_name,
+            opt_section,
+            opt_jabatan,
+            opt_status: existing.opt_status==0?1:existing.opt_status,
+            updated_at: now
+          });
+      }else{
+        // Insert new
+          await dbWJS('Employee').insert({
+            emp_id,
+            opt_nik,
+            opt_name,
+            opt_section,
+            opt_jabatan,
+            opt_status: null,
+            created_at: now,
+            updated_at: now
+          });
+        }
       }
-      
-      // Insert new
-      await dbWJS('Employee').insert({
-        emp_id,
-        opt_nik,
-        opt_name,
-        opt_section,
-        opt_jabatan,
-        opt_status: null,
-        created_at: now,
-        updated_at: now
-      });
-    }
     
     res.status(200).json({ message: 'sukses' });
   } catch (error) {

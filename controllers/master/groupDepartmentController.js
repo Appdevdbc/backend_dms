@@ -206,13 +206,20 @@ export const saveGroupDepartment = async (req, res) => {
         .where('grp_id', id_group)
         .delete();
     } else {
-      // Insert new
-      const [newGroup] = await trx('Group_Menu').insert({
+      // Insert new - SQL Server requires OUTPUT clause to get the inserted ID
+      await trx('Group_Menu').insert({
         nama,
         created_at: now,
         updated_at: now
       });
-      groupId = newGroup;
+      
+      // Get the newly inserted group ID
+      const newGroup = await trx('Group_Menu')
+        .where('nama', nama)
+        .orderBy('id_group', 'desc')
+        .first();
+      
+      groupId = newGroup.id_group;
     }
     
     // Insert department assignments

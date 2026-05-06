@@ -1,5 +1,5 @@
 import { dbWJS } from "../../config/db.js";
-import { getErrorResponse } from "../../helpers/utils.js";
+import { decrypt, getErrorResponse } from "../../helpers/utils.js";
 import { logger } from "../../helpers/logger.js";
 import dayjs from "dayjs";
 
@@ -19,13 +19,15 @@ export const listBreakTimes = async (req, res) => {
         .select('break_id', 'break_todays', 'break_start', 'break_end')
         .orderBy('break_id', 'asc');
       
-      // Format times to HH:mm
+      // Format times to HH:mm (without timezone conversion)
       response.forEach(item => {
         if (item.break_start) {
-          item.break_start = dayjs(item.break_start).format('HH:mm');
+          const d = new Date(item.break_start);
+          item.break_start = d.toISOString().slice(11, 16);
         }
         if (item.break_end) {
-          item.break_end = dayjs(item.break_end).format('HH:mm');
+          const d = new Date(item.break_end);
+          item.break_end = d.toISOString().slice(11, 16);
         }
       });
       
@@ -58,13 +60,15 @@ export const listBreakTimes = async (req, res) => {
         isLengthAware: true,
       });
     
-    // Format times
+    // Format times (without timezone conversion)
     response.data.forEach(item => {
       if (item.break_start) {
-        item.break_start = dayjs(item.break_start).format('HH:mm');
+        const d = new Date(item.break_start);
+        item.break_start = d.toISOString().slice(11, 16);
       }
       if (item.break_end) {
-        item.break_end = dayjs(item.break_end).format('HH:mm');
+        const d = new Date(item.break_end);
+        item.break_end = d.toISOString().slice(11, 16);
       }
     });
     
@@ -83,9 +87,9 @@ export const updateBreakTime = async (req, res) => {
     }] */
   // #swagger.description = 'Update break time'
   try {
-    const { break_id, break_start, break_end, creator } = req.body;
+    const { break_id, break_start, break_end, creator:creatorDecrypt } = req.body;
     const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
-    
+    const creator = decrypt(creatorDecrypt);
     if (!break_start || !break_end) {
       return res.status(406).json({
         type: 'error',
@@ -106,7 +110,12 @@ export const updateBreakTime = async (req, res) => {
     const today = dayjs().format('YYYY-MM-DD');
     const startDateTime = `${today} ${break_start}:00`;
     const endDateTime = `${today} ${break_end}:00`;
-    
+    console.log({
+        break_start: startDateTime,
+        break_end: endDateTime,
+        updated_by: creator,
+        updated_date: now
+      })
     // Update break time
     await dbWJS('MstBreak')
       .where('break_id', break_id)
