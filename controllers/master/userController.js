@@ -659,6 +659,7 @@ export const saveUserData = async (req, res) => {
   try {
     const { id, nik, first_name, email, emp_id, activated, creator } = req.body;
     const creator_decrypt = decrypt(creator);
+    const empid_decrypt = decrypt(emp_id);
     const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
     
     if (id) {
@@ -669,7 +670,7 @@ export const saveUserData = async (req, res) => {
           name: nik,
           first_name: first_name,
           email: email,
-          emp_id: emp_id,
+          emp_id: empid_decrypt,
           activated: activated,
           updated_at: now,
         });
@@ -677,7 +678,7 @@ export const saveUserData = async (req, res) => {
       // Check if user already exists
       const existing = await trx('users')
         .where('name', nik)
-        .orWhere('emp_id', emp_id)
+        .orWhere('emp_id', empid_decrypt)
         .whereNull('deleted_at')
         .first();
       
@@ -699,7 +700,7 @@ export const saveUserData = async (req, res) => {
         name: nik,
         first_name: first_name,
         email: email,
-        emp_id: emp_id,
+        emp_id: empid_decrypt,
         activated: activated !== undefined ? activated : true,
         created_at: now,
         updated_at: now,
