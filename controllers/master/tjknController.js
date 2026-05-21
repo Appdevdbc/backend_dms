@@ -191,6 +191,25 @@ export const saveTJKN = async (req, res) => {
       });
     }
     
+    // Validasi: Cek apakah kombinasi tahun & bulan sudah ada
+    let duplicateQuery = dbWJS('TJKN')
+      .where('tjkn_year', tjkn_year)
+      .where('tjkn_month', tjkn_month);
+    
+    // Jika update, exclude record yang sedang diedit
+    if (tjkn_id) {
+      duplicateQuery = duplicateQuery.whereNot('tjkn_id', tjkn_id);
+    }
+    
+    const duplicate = await duplicateQuery.first();
+    
+    if (duplicate) {
+      return res.status(406).json({
+        type: 'error',
+        message: 'Data dengan tahun dan bulan yang sama sudah ada'
+      });
+    }
+    
     if (tjkn_id) {
       // Update existing
       await dbWJS('TJKN')
@@ -235,6 +254,26 @@ export const saveTJKNEmployee = async (req, res) => {
       return res.status(406).json({
         type: 'error',
         message: 'NIK, Tahun, Bulan, dan Pengurang TJKN wajib diisi'
+      });
+    }
+    
+    // Validasi: Cek apakah kombinasi NIK, tahun & bulan sudah ada
+    let duplicateQuery = dbWJS('TJKN_Employee')
+      .where('tjkn_nik', tjkn_nik)
+      .where('tjkn_year', tjkn_year)
+      .where('tjkn_month', tjkn_month);
+    
+    // Jika update, exclude record yang sedang diedit
+    if (tjkn_id) {
+      duplicateQuery = duplicateQuery.whereNot('tjkn_id', tjkn_id);
+    }
+    
+    const duplicate = await duplicateQuery.first();
+    
+    if (duplicate) {
+      return res.status(406).json({
+        type: 'error',
+        message: 'Data dengan NIK, tahun dan bulan yang sama sudah ada'
       });
     }
     

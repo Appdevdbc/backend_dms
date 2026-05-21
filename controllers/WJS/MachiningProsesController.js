@@ -5,6 +5,7 @@ import { getErrorResponse } from "../../helpers/utils.js";
 
 const SECTIONS = ["machining", "bongkar_analisis", "order_part", "drawing", "assy", "trial"];
 const SPV_SECTIONS = ["bongkar_analisis", "order_part", "drawing", "assy", "trial"];
+const LAST_SECTIONS = ["Design", "Machining", "New Mould", "Repair Mould"];
 
 // ─── 1. LIST ADJUSTMENT ───────────────────────────────────────────────────────
 export const listAdjustment = async (req, res) => {
@@ -136,7 +137,7 @@ export const storeAdjustment = async (req, res) => {
     if (!["finish", "postpone"].includes(action))
       return res.status(400).json({ type: "error", message: "Action harus finish atau postpone" });
 
-    const datetime = dayjs(`${tanggal} ${jam}:${menit}:00`, `DD-MM-YYYY HH:mm`).format("YYYY-MM-DD HH:mm:ss");
+    const datetime = dayjs(`${tanggal} ${jam}:${menit}:00`, `YYYY-MM-DD HH:mm:ss`).format("YYYY-MM-DD HH:mm:ss");
     const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
 
     const updateData = {
@@ -163,6 +164,350 @@ export const storeAdjustment = async (req, res) => {
     return res.status(200).json({ message: "Adjustment berhasil disimpan" });
   } catch (error) {
     logger(error, "POST /adjustment/store", req.body);
+    return res.status(406).json(getErrorResponse(error));
+  }
+};
+
+// ─── 5. LIST MACHINING PROSES (Operator Scan Page) ───────────────────────────
+export const listMachiningProses = async (req, res) => {
+  // #swagger.tags = ['MachiningProses']
+  /* #swagger.security = [{ "bearerAuth": [] }] */
+  // #swagger.description = 'List machining proses untuk halaman scan operator'
+  try {
+    const { start, end } = req.query;
+    const startDate = start ?? dayjs().format("YYYY-MM-DD");
+    const endDate = end ?? dayjs().format("YYYY-MM-DD");
+
+    // Try using tbl_scan_opt function first
+    try {
+      const result = await dbWJS.raw(`
+        SELECT a.*, b.nama as namaMesin 
+        FROM (
+          SELECT * FROM tbl_scan_opt('${startDate}', '${endDate}')
+        ) AS a 
+        LEFT JOIN Machine AS b ON a.id_mesin = b.id
+        ORDER BY a.start DESC
+      `).timeout(60000);
+
+      const data = Array.isArray(result) ? result : result[0] ?? [];
+      console.log("Using tbl_scan_opt, first row:", data[0]);
+      return res.status(200).json(data);
+    } catch (funcError) {
+      // Fallback: Query langsung ke Scan_Operator jika function tidak ada
+      console.log("tbl_scan_opt function not found, using direct query");
+      
+      const result = await dbWJS.raw(`
+        SELECT 
+          so.id,
+          so.id_spk,
+          so.pic,
+          e.opt_name as nama_pic,
+          so.id_mesin,
+          m.nama as namaMesin,
+          so.id_job,
+          so.start,
+          so.postpone,
+          so.finish,
+          so.part_code,
+          so.status,
+          CASE 
+            WHEN so.finish IS NOT NULL THEN 
+              DATEDIFF(MINUTE, so.start, so.finish)
+            WHEN so.postpone IS NOT NULL THEN 
+              DATEDIFF(MINUTE, so.start, so.postpone)
+            ELSE 
+              DATEDIFF(MINUTE, so.start, GETDATE())
+          END as total,
+          CASE 
+            WHEN so.finish IS NOT NULL THEN 
+              CAST(DATEDIFF(MINUTE, so.start, so.finish) / 60 AS VARCHAR) + ' hari ' + 
+              CAST((DATEDIFF(MINUTE, so.start, so.finish) % 60) AS VARCHAR) + ' menit'
+            WHEN so.postpone IS NOT NULL THEN 
+              CAST(DATEDIFF(MINUTE, so.start, so.postpone) / 60 AS VARCHAR) + ' hari ' + 
+              CAST((DATEDIFF(MINUTE, so.start, so.postpone) % 60) AS VARCHAR) + ' menit'
+            ELSE 
+              CAST(DATEDIFF(MINUTE, so.start, GETDATE()) / 60 AS VARCHAR) + ' hari ' + 
+              CAST((DATEDIFF(MINUTE, so.start, GETDATE()) % 60) AS VARCHAR) + ' menit'
+          END as jamTotal
+        FROM Scan_Operator so
+        LEFT JOIN Employee e ON so.pic = e.opt_nik
+        LEFT JOIN Machine m ON so.id_mesin = m.id
+        WHERE CAST(so.start AS DATE) BETWEEN '${startDate}' AND '${endDate}'
+        ORDER BY so.start DESC
+      `).timeout(60000);
+
+      const data = Array.isArray(result) ? result : result[0] ?? [];
+      console.log("Using direct query, first row:", data[0]);
+      return res.status(200).json(data);
+    }
+  } catch (error) {
+    logger(error, "GET /machining/proses/list", req.query);
+    return res.status(406).json(getErrorResponse(error));
+  }
+};
+
+// ─── 6. CHECK OPERATOR LOG ────────────────────────────────────────────────────
+export const checkOperatorLog = async (req, res) => {
+  // #swagger.tags = ['MachiningProses']
+  /* #swagger.security = [{ "bearerAuth": [] }] */
+  // #swagger.description = 'Check apakah operator memiliki SPK aktif'
+  try {
+    const { pic } = req.params;
+
+    if (!pic)
+      return res.status(400).json({ type: "error", message: "PIC wajib diisi" });
+
+    const log = await dbWJS("Log_Scan")
+      .where("log_pic", pic)
+      .where("log_flag", "O")
+      .first();
+
+    if (log) {
+      // Get detail scan
+      const scan = await dbWJS("Scan_Operator")
+        .where("id", log.log_id_scan)
+        .first();
+
+      return res.status(200).json({
+        hasActiveLog: true,
+        log,
+        scan,
+      });
+    }
+
+    return res.status(200).json({
+      hasActiveLog: false,
+      log: null,
+      scan: null,
+    });
+  } catch (error) {
+    logger(error, "GET /machining/proses/check-log", req.params);
+    return res.status(406).json(getErrorResponse(error));
+  }
+};
+
+// ─── 7. SCAN OPERATOR (Start/Postpone/Finish) ────────────────────────────────
+export const scanOperator = async (req, res) => {
+  // #swagger.tags = ['MachiningProses']
+  /* #swagger.security = [{ "bearerAuth": [] }] */
+  // #swagger.description = 'Proses scan operator (start/postpone/finish)'
+  try {
+    const { pic, id_spk, id_mesin, id_job, action, last_type, last_reason, last_moment } = req.body;
+
+    // Validasi input
+    if (!pic || !id_spk || !id_mesin || !id_job || !action)
+      return res.status(400).json({ type: "error", message: "PIC, SPK, Mesin, Job, dan Action wajib diisi" });
+
+    if (!["start", "postpone", "finish"].includes(action))
+      return res.status(400).json({ type: "error", message: "Action harus start, postpone, atau finish" });
+
+    // Cek NIK terdaftar
+    const employee = await dbWJS("Employee")
+      .where("opt_nik", pic)
+      .whereNull("opt_status")
+      .first();
+
+    if (!employee)
+      return res.status(400).json({ type: "error", message: "NIK tidak terdaftar" });
+
+    // Parse SPK dan part_code
+    const spkId = id_spk.substring(0, 6);
+    const cekSPK = await dbWJS("SPK")
+      .where("id_spk", spkId)
+      .where("status", "proses")
+      .first();
+
+    const limit = cekSPK ? 6 : 8;
+    const finalSpk = id_spk.substring(0, limit);
+    const partCode = id_spk.substring(limit);
+
+    // Cek SPK status proses
+    const spk = await dbWJS("SPK")
+      .where("id_spk", finalSpk)
+      .where("status", "proses")
+      .first();
+
+    if (!spk)
+      return res.status(400).json({ type: "error", message: "SPK tidak ditemukan atau status bukan proses" });
+
+    // ─── ACTION: START ────────────────────────────────────────────────────────
+    if (action === "start") {
+      // Cek apakah operator punya SPK aktif
+      const checkLog = await dbWJS("Log_Scan")
+        .where("log_pic", pic)
+        .where("log_flag", "O")
+        .first();
+
+      if (checkLog)
+        return res.status(400).json({ type: "error", message: "Terdapat SPK yang statusnya sedang berjalan" });
+
+      // Cek scan terakhir untuk validasi last_type
+      const lastScan = await dbWJS("Scan_Operator")
+        .where("pic", pic)
+        .where("id_mesin", id_mesin)
+        .where("id_spk", finalSpk)
+        .orderBy("id", "desc")
+        .first();
+
+      // Validasi last_type untuk section tertentu
+      if (
+        lastScan &&
+        lastScan.start &&
+        !lastScan.postpone &&
+        LAST_SECTIONS.includes(employee.opt_section) &&
+        (!last_type || !last_reason || !last_moment)
+      ) {
+        return res.status(400).json({
+          type: "error",
+          message: "Mohon dilakukan pengisian Tipe Proses, Alasan, dan Waktu",
+          requiresLastFields: true,
+        });
+      }
+
+      // Insert scan baru
+      const insertData = {
+        id_spk: finalSpk,
+        id_job,
+        pic,
+        id_mesin: parseInt(id_mesin),
+        part_code: partCode,
+        start: dayjs().format("YYYY-MM-DD HH:mm:ss"),
+        created_at: dayjs().format("YYYY-MM-DD HH:mm:ss"),
+      };
+
+      if (last_type) {
+        insertData.last_type = last_type;
+        insertData.last_reason = last_reason;
+        insertData.last_moment = last_moment;
+      }
+
+      const [insertedId] = await dbWJS("Scan_Operator").insert(insertData);
+
+      // Insert log
+      await dbWJS("Log_Scan").insert({
+        log_id_scan: insertedId,
+        log_pic: pic,
+        log_flag: "O",
+        // created_at: dayjs().format("YYYY-MM-DD HH:mm:ss"),
+      });
+
+      return res.status(200).json({ message: "SPK Start", scanId: insertedId });
+    }
+
+    // ─── ACTION: POSTPONE ─────────────────────────────────────────────────────
+    if (action === "postpone") {
+      const checkLog = await dbWJS("Log_Scan")
+        .where("log_pic", pic)
+        .where("log_flag", "O")
+        .first();
+
+      if (!checkLog)
+        return res.status(400).json({ type: "error", message: "SPK belum start" });
+
+      const cekScan = await dbWJS("Scan_Operator")
+        .where("id", checkLog.log_id_scan)
+        .first();
+
+      if (!cekScan)
+        return res.status(400).json({ type: "error", message: "SPK belum dimulai" });
+
+      if (cekScan.finish)
+        return res.status(400).json({ type: "error", message: "SPK sudah finish" });
+
+      if (cekScan.pic !== pic || cekScan.id_mesin !== parseInt(id_mesin))
+        return res.status(400).json({ type: "error", message: "SPK hanya bisa diupdate oleh PIC dan Mesin yang sama" });
+
+      // Validasi last_type jika melewati hari
+      if (
+        dayjs(cekScan.start).format("YYYY-MM-DD") < dayjs().format("YYYY-MM-DD") &&
+        LAST_SECTIONS.includes(employee.opt_section) &&
+        (!last_type || !last_reason || !last_moment)
+      ) {
+        return res.status(400).json({
+          type: "error",
+          message: "Mohon dilakukan pengisian Tipe Proses, Alasan, dan Waktu",
+          requiresLastFields: true,
+        });
+      }
+
+      // Update postpone
+      const updateData = {
+        postpone: dayjs().format("YYYY-MM-DD HH:mm:ss"),
+        updated_at: dayjs().format("YYYY-MM-DD HH:mm:ss"),
+      };
+
+      if (last_type) {
+        updateData.last_type = last_type;
+        updateData.last_reason = last_reason;
+        updateData.last_moment = last_moment;
+      }
+
+      await dbWJS("Scan_Operator")
+        .where("id", checkLog.log_id_scan)
+        .update(updateData);
+
+      // Hapus log
+      await dbWJS("Log_Scan").where("log_id", checkLog.log_id).delete();
+
+      return res.status(200).json({ message: "SPK postpone" });
+    }
+
+    // ─── ACTION: FINISH ───────────────────────────────────────────────────────
+    if (action === "finish") {
+      const checkLog = await dbWJS("Log_Scan")
+        .where("log_pic", pic)
+        .where("log_flag", "O")
+        .first();
+
+      if (!checkLog)
+        return res.status(400).json({ type: "error", message: "SPK belum start" });
+
+      const cekScan = await dbWJS("Scan_Operator")
+        .where("id", checkLog.log_id_scan)
+        .first();
+
+      if (!cekScan)
+        return res.status(400).json({ type: "error", message: "SPK belum start" });
+
+      if (cekScan.pic !== pic || cekScan.id_mesin !== parseInt(id_mesin))
+        return res.status(400).json({ type: "error", message: "SPK hanya bisa diupdate oleh PIC dan Mesin yang sama" });
+
+      // Validasi last_type jika melewati hari
+      if (
+        dayjs(cekScan.start).format("YYYY-MM-DD") < dayjs().format("YYYY-MM-DD") &&
+        LAST_SECTIONS.includes(employee.opt_section) &&
+        (!last_type || !last_reason || !last_moment)
+      ) {
+        return res.status(400).json({
+          type: "error",
+          message: "Mohon dilakukan pengisian Tipe Proses, Alasan, dan Waktu",
+          requiresLastFields: true,
+        });
+      }
+
+      // Update finish
+      const updateData = {
+        finish: dayjs().format("YYYY-MM-DD HH:mm:ss"),
+        updated_at: dayjs().format("YYYY-MM-DD HH:mm:ss"),
+      };
+
+      if (last_type) {
+        updateData.last_type = last_type;
+        updateData.last_reason = last_reason;
+        updateData.last_moment = last_moment;
+      }
+
+      await dbWJS("Scan_Operator")
+        .where("id", checkLog.log_id_scan)
+        .update(updateData);
+
+      // Hapus log
+      await dbWJS("Log_Scan").where("log_id", checkLog.log_id).delete();
+
+      return res.status(200).json({ message: "SPK finish" });
+    }
+  } catch (error) {
+    logger(error, "POST /machining/proses/scan", req.body);
     return res.status(406).json(getErrorResponse(error));
   }
 };

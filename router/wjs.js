@@ -5,6 +5,9 @@ import {
   listAdjustmentBySPK,
   getAdjustment,
   storeAdjustment,
+  listMachiningProses,
+  checkOperatorLog,
+  scanOperator,
 } from "../controllers/WJS/MachiningProsesController.js";
 import {
   getList as getOrderPartList,
@@ -89,6 +92,11 @@ router.get('/adjusment/list/:spk/:pic', listAdjustmentBySPK); // PHP compatibili
 router.get('/adjustment/by-spk', listAdjustmentBySPK); // Alternative query param route
 router.get('/adjustment/detail', getAdjustment);
 router.post('/adjustment/store', storeAdjustment);
+
+// ─── Machining Proses (Operator Scan) routes ─────────────────────────────────
+router.get('/machining/proses/list', listMachiningProses);
+router.get('/machining/proses/check-log/:pic', checkOperatorLog);
+router.post('/machining/proses/scan', scanOperator);
 
 // ─── OrderPart routes ─────────────────────────────────────────────────────────
 router.get('/orderPart/list', getOrderPartList);

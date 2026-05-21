@@ -571,7 +571,8 @@ export const updateMachining = async (req, res) => {
 
     await trx("SPK_Part").where("id_spkpart", id).update({
       id_part, proses: cleanProses,
-      updated_by: empid, updated_at: now,
+      // updated_by: empid, 
+      updated_at: now,
     });
 
     if (saveTemplate === "Y") {
