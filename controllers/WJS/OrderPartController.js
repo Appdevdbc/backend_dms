@@ -24,7 +24,7 @@ export const getList = async (req, res) => {
       return res.status(400).json({ type: "error", message: "Section tidak valid" });
 
     const today = dayjs().format("YYYY-MM-DD");
-    const start = section === "bongkar_analisis" || section === "assy" ? "2023-01-01" : today;
+    const start = VALID_SECTIONS.includes(section) ? "2023-01-01" : today;
 
     // Without pagination - use function for backward compatibility
     if (req.query.rowsPerPage == null) {
