@@ -1,5 +1,5 @@
-import { dbWJS, dbPortal } from '../../config/db.js';
-import { encrypt, getErrorResponse, mySimpleCrypt } from '../../helpers/utils.js';
+import { dbHris, dbWJS } from '../../config/db.js';
+import { getErrorResponse, mySimpleCrypt } from '../../helpers/utils.js';
 import { logger } from '../../helpers/logger.js';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
@@ -8,24 +8,25 @@ dotenv.config();
 
 /**
  * Login - Authenticate user with NIK and password
- * Pattern follows existing loginController.js
  * 
- * Users table structure:
- * - name: stores NIK
- * - first_name: stores actual user name
- * - emp_id: stores Emp_Id from portal
- * - activated: 1 = active, 0 = inactive
+ * New table structure (master_user):
+ * - account_nik: stores NIK (used for lookup)
+ * - account_username: stores NIK (duplicate)
+ * - account_password: NOT USED (password validated from portal)
+ * - account_type: NOT USED for validation (only for menu settings)
+ * - account_bu: stores BU ID
+ * - emp_id: stores Emp_Id from portal (may be NULL)
  */
 export const login = async (req, res) => {
   try {
     const { nik, password } = req.body;
 
-    // Get user from WJS database by NIK (stored in 'name' field)
-    const user = await dbWJS('users')
-      .select('id', 'name', 'first_name', 'email', 'activated', 'emp_id')
-      .where('name', nik)
+    // Get user from master_user table by NIK
+    const user = await dbWJS('master_user')
+      .select('account_nik', 'account_username', 'emp_id', 'account_bu')
+      .where('account_nik', nik)
       .first();
-    console.log(user);
+
     if (!user) {
       return res.status(406).json({
         success: false,
@@ -34,28 +35,21 @@ export const login = async (req, res) => {
       });
     }
 
-    // Check if user is active (activated = 1)
-    if (user.activated !== 1) {
-      return res.status(406).json({
-        success: false,
-        type: 'error',
-        message: `User ${nik} tidak aktif`
-      });
-    }
-
-    // Validate against portal database using emp_id if exists, otherwise use NIK
-    const lookupValue = user.emp_id;
+    // Lookup in portal using emp_id if exists, otherwise use NIK
+    const lookupValue = user.emp_id || user.account_nik;
     
-    const portalUser = await dbPortal('portal.dbo.ptl_hris as a')
+    const portalUser = await dbHris('ptl_hris as a')
       .select(
         'a.Emp_Id',
         'a.user_pass',
         'a.user_newid',
+        'a.user_name',
         'a.grade',
         'a.jabatan',
         'a.employee_mgr_pk',
         'a.map_dept_pk',
         'a.map_div_pk',
+        'a.bu_id',
         'b.nama_div',
         'd.nama_dept',
         'c.map_dir_pk'
@@ -71,16 +65,14 @@ export const login = async (req, res) => {
       .first();
 
     if (!portalUser) {
-      // Deactivate user in WJS database
-      await dbWJS('users').where('id', user.id).update({ activated: 0 });
       return res.status(406).json({
         success: false,
         type: 'error',
-        message: `User ${nik} sudah tidak aktif`
+        message: `User ${nik} sudah tidak aktif di portal`
       });
     }
 
-    // Validate password (only in production)
+    // Validate password (only in production) - using portal password
     if (process.env.ENVIRONMENT === 'PRODUCTION') {
       const hashedPassword = await mySimpleCrypt(password);
       if (portalUser.user_pass !== hashedPassword) {
@@ -93,12 +85,12 @@ export const login = async (req, res) => {
     }
 
     // Get direktorat info
-    const direktorat = await dbPortal('master_dir')
+    const direktorat = await dbWJS('v_master_dir')
       .where('direktorat_pk', portalUser.map_dir_pk)
       .first();
 
     // Get idle time from portal policy
-    const portalPolicy = await dbPortal('ptl_policy').where('id', 0).first();
+    const portalPolicy = await dbWJS('v_ptl_policy').where('id', 0).first();
     const idleTime = process.env.ENVIRONMENT === 'PRODUCTION' 
       ? (portalPolicy?.idle_time || 3600000)
       : 3600000; // 1 hour for dev
@@ -110,24 +102,19 @@ export const login = async (req, res) => {
       { expiresIn: idleTime }
     );
 
-    // Update user info in WJS database
-    // name = NIK, first_name = actual name from portal, emp_id = Emp_Id from portal
-    await dbWJS('users')
-      .where('id', user.id)
-      .update({
-        name: portalUser.user_newid, // Update NIK from portal
-        first_name: user.first_name, // Keep existing name
-        emp_id: portalUser.Emp_Id, // Store Emp_Id
-        usr_bu_id: user.usr_bu_id,
-        usr_ste_id: user.usr_ste_id,
-        usr_sec_id: user.usr_sec_id,
-        usr_dpt_id: portalUser.map_dept_pk
-      });
+    // Update emp_id in master_user if it was NULL
+    if (!user.emp_id) {
+      await dbWJS('master_user')
+        .where('account_nik', user.account_nik)
+        .update({
+          emp_id: portalUser.Emp_Id
+        });
+    }
 
     // Log access
     await dbWJS('log_akses').insert({
       empid: portalUser.Emp_Id,
-      nik: portalUser.user_newid,
+      nik: user.account_nik,
       status: 'login',
       keterangan: 'user',
       nama_url: req.body.url || '/wjs'
@@ -141,11 +128,13 @@ export const login = async (req, res) => {
         token,
         user: {
           id: portalUser.Emp_Id,
-          nik: portalUser.user_newid,
-          name: user.first_name, // Actual name from first_name field
-          email: user.email,
+          nik: user.account_nik,
+          name: portalUser.user_name, // Name from portal
+          email: null, // master_user doesn't have email field
           grade: portalUser.grade,
           jabatan: portalUser.jabatan,
+          bu_id: user.account_bu || portalUser.bu_id,
+          domain: user.account_bu || portalUser.bu_id,
           dept_id: portalUser.map_dept_pk,
           dept_name: portalUser.nama_dept,
           div_id: portalUser.map_div_pk,
@@ -178,9 +167,9 @@ export const logout = async (req, res) => {
     const decoded = jwt.verify(token, process.env.TOKEN);
     const empid = decoded.user;
 
-    // Get user info
-    const user = await dbWJS('users')
-      .select('name', 'first_name', 'emp_id')
+    // Get user info from master_user
+    const user = await dbWJS('master_user')
+      .select('account_nik', 'account_username', 'emp_id')
       .where('emp_id', empid)
       .first();
 
@@ -188,7 +177,7 @@ export const logout = async (req, res) => {
       // Log logout activity
       await dbWJS('log_akses').insert({
         empid: user.emp_id,
-        nik: user.name,
+        nik: user.account_nik,
         status: 'logout',
         keterangan: 'user',
         nama_url: req.body.url || '/wjs'
@@ -224,7 +213,7 @@ export const verify = async (req, res) => {
     const decoded = jwt.verify(token, process.env.TOKEN);
     
     // Check if user is still active in portal
-    const portalUser = await dbPortal('portal.dbo.ptl_hris')
+    const portalUser = await dbHris('ptl_hris')
       .where('Emp_Id', decoded.user)
       .where('user_active', 'Active')
       .first();
@@ -263,9 +252,9 @@ export const getCurrentUser = async (req, res) => {
 
     const decoded = jwt.verify(token, process.env.TOKEN);
     
-    // Get user from WJS database
-    const user = await dbWJS('users')
-      .select('id', 'name', 'first_name', 'email', 'emp_id')
+    // Get user from master_user
+    const user = await dbWJS('master_user')
+      .select('account_nik', 'account_username', 'emp_id', 'account_bu')
       .where('emp_id', decoded.user)
       .first();
 
@@ -277,8 +266,8 @@ export const getCurrentUser = async (req, res) => {
     }
 
     // Get portal user info
-    const portalUser = await dbPortal('portal.dbo.ptl_hris')
-      .select('user_newid', 'grade', 'jabatan', 'map_dept_pk', 'map_div_pk')
+    const portalUser = await dbHris('ptl_hris')
+      .select('user_newid', 'user_name', 'grade', 'jabatan', 'map_dept_pk', 'map_div_pk')
       .where('Emp_Id', decoded.user)
       .where('user_active', 'Active')
       .first();
@@ -294,11 +283,12 @@ export const getCurrentUser = async (req, res) => {
       success: true,
       data: {
         id: user.emp_id,
-        nik: portalUser.user_newid,
-        name: user.first_name,
-        email: user.email,
+        nik: user.account_nik,
+        name: portalUser.user_name,
+        email: null,
         grade: portalUser.grade,
         jabatan: portalUser.jabatan,
+        bu_id: user.account_bu,
         dept_id: portalUser.map_dept_pk,
         div_id: portalUser.map_div_pk
       }
@@ -328,7 +318,7 @@ export const refreshToken = async (req, res) => {
     const decoded = jwt.verify(token, process.env.TOKEN);
     
     // Check if user is still active
-    const portalUser = await dbPortal('portal.dbo.ptl_hris')
+    const portalUser = await dbHris('ptl_hris')
       .where('Emp_Id', decoded.user)
       .where('user_active', 'Active')
       .first();
@@ -341,7 +331,7 @@ export const refreshToken = async (req, res) => {
     }
 
     // Get idle time
-    const portalPolicy = await dbPortal('ptl_policy').where('id', 0).first();
+    const portalPolicy = await dbWJS('v_ptl_policy').where('id', 0).first();
     const idleTime = process.env.ENVIRONMENT === 'PRODUCTION' 
       ? portalPolicy.idle_time 
       : 3600000;

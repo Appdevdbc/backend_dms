@@ -30,6 +30,7 @@ import {
   getUserGroupsByUser,
   saveGroup,
   deleteGroup,
+  getRoles,
 } from "../controllers/master/userController.js";
 
 import {
@@ -149,6 +150,7 @@ router.post('/toggleUserActivation', toggleUserActivation);
 router.get('/getUserGroupsByUser', getUserGroupsByUser);
 router.post('/saveGroup', saveGroup);
 router.post('/deleteGroup', deleteGroup);
+router.get('/getRoles', getRoles);
 
 //domainController
 router.get('/domains', listDomainMaster);

@@ -1,4 +1,4 @@
-import { dbHris, db, dbDMS } from "../../config/db.js";
+import { db, dbDMS, dbHris } from "../../config/db.js";
 import dayjs from "dayjs";
 import * as dotenv from 'dotenv' ;
 import { uploadFile,removeFile } from "../../helpers/ftp.js";
@@ -10,52 +10,73 @@ dotenv.config();
   export const listUser = async (req, res) => {
     try {
       if (req.query.rowsPerPage == null) {
-        let responseQuery = dbDMS("users")
-          .select('name as account_nik','emp_id as account_username','email as account_email','first_name as account_name')
-          .where("activated", 1)
-          .whereNull('deleted_at')
+        let responseQuery = dbDMS("master_user as u")
+          .select(
+            'u.account_nik',
+            'u.emp_id as account_username',
+            'v.user_email as account_email',
+            'v.user_name as account_name',
+            'v.user_active as account_active'
+          )
+          .leftJoin('portal.dbo.ptl_hris as v', 'v.Emp_Id', 'u.emp_id')
+          .whereNull('u.deleted_at')
         if (req.query.limit) {
           responseQuery.limit(req.query.limit);
         }
         if (req.query.code) {
-          responseQuery.where('emp_id',req.query.code);
+          responseQuery.where('u.emp_id',req.query.code);
         }
         if (req.query.needle) {
-          responseQuery.where('name', 'like', `%${req.query.needle}%`);
-          responseQuery.orWhere("first_name", "like", `%${req.query.needle}%`);
+          responseQuery.where(function() {
+            this.where('u.account_nik', 'like', `%${req.query.needle}%`)
+              .orWhere('v.user_name', 'like', `%${req.query.needle}%`);
+          });
         }
-        const response=await responseQuery.orderBy("name");
+        responseQuery = responseQuery.orderBy("u.account_nik");
+        
+        // Log SQL query
+        // console.log('=== listUser Query (No Pagination) ===');
+        // console.log(responseQuery.toSQL().toNative());
+        // console.log('=====================================');
+        
+        const response=await responseQuery;
         res.status(200).json(response);
       } else {
         const sorting = req.query.descending === "true" ? "desc" : "asc";
         const columnSort =
           req.query.sortBy === "desc"
-            ? "name asc"
-            : `${req.query.sortBy} ${sorting}`;
+            ? "u.account_nik asc"
+            : `u.${req.query.sortBy} ${sorting}`;
 
         const page = Math.floor(req.query.page);
-        const response = await dbDMS('users as u')
+        let paginatedQuery = dbDMS('master_user as u')
             .select(
-              'u.id',
-              'u.name as account_nik',
+              'u.account_nik',
               'u.emp_id as account_username',
-              'u.email as account_email',
-              'u.first_name as account_name',
-              dbDMS.raw(`(SELECT TOP 1 jabatan FROM ${process.env.DB_HRIS}.dbo.ptl_hris WHERE Emp_Id = u.emp_id) as account_jabatan`),
-              dbDMS.raw(`(SELECT TOP 1 bu_id FROM ${process.env.DB_HRIS}.dbo.ptl_hris WHERE Emp_Id = u.emp_id) as account_bu`)
+              'u.account_bu',
+              'v.user_email as account_email',
+              'v.user_name as account_name',
+              'v.jabatan as account_jabatan',
+              'v.user_active as account_active'
             )
-            .where("u.activated", 1)
+            .leftJoin('portal.dbo.ptl_hris as v', 'v.Emp_Id', 'u.emp_id')
             .whereNull("u.deleted_at")
             .where((query) => {
               if (req.query.filter != null) {
-                query.orWhere("u.name", "like", `%${req.query.filter}%`);
+                query.orWhere("u.account_nik", "like", `%${req.query.filter}%`);
                 query.orWhere("u.emp_id", "like", `%${req.query.filter}%`);
-                query.orWhere("u.email", "like", `%${req.query.filter}%`);
-                query.orWhere("u.first_name", "like", `%${req.query.filter}%`);
+                query.orWhere("v.user_name", "like", `%${req.query.filter}%`);
               }
             })
-          .orderByRaw(columnSort)
-          .paginate({
+          .orderByRaw(columnSort);
+        
+        // Log SQL query before pagination
+        // console.log('=== listUser Query (With Pagination) ===');
+        // console.log(paginatedQuery.toSQL().toNative());
+        // console.log('Page:', page, 'RowsPerPage:', req.query.rowsPerPage);
+        // console.log('=========================================');
+        
+        const response = await paginatedQuery.paginate({
             perPage: Math.floor(req.query.rowsPerPage),
             currentPage: page,
             isLengthAware: true,
@@ -113,14 +134,18 @@ dotenv.config();
       const empid = decrypt(encryptedEmpid);
       
       // Get user's groups using new user_group table
-      const userGroups = await dbDMS('user_group')
-        .select('ugrp_group_id')
-        .where({'ugrp_user_id':empid, 'ugrp_bu_id':domain})
-        .whereNull('deleted_at');
+      // const userGroups = await dbDMS('user_group')
+      //   .select('ugrp_group_id')
+      //   .where({'ugrp_user_id':empid, 'ugrp_bu_id':domain})
+      //   .whereNull('deleted_at');
+
+      const userGroups = await dbDMS('master_user')
+        .select('account_type')
+        .where({'emp_id':empid});
       
       if(userGroups.length === 0) return res.status(200).json({data: []});
       
-      const groupIds = userGroups.map(g => g.ugrp_group_id);
+      const groupIds = userGroups.map(g => g.account_type);
 
       // Get parent menus
       const parent = await dbDMS("mst_menu as a")
@@ -289,7 +314,18 @@ dotenv.config();
     // #swagger.description = 'Fungsi untuk menghapus user'
     try {
       const now = dayjs().format("YYYY-MM-DD HH:mm:ss")
-      await db("users").where('user_id',await decrypt(req.body.empid)).update({user_active:0,updated_at:now,updated_by:await decrypt(req.body.creator),deleted_at:now,deleted_by:await decrypt(req.body.creator)});
+      const empid = await decrypt(req.body.empid);
+      const creator = await decrypt(req.body.creator);
+      
+      await dbDMS("master_user")
+        .where('emp_id', empid)
+        .update({
+          account_active: 'Inactive',
+          updated_at: now,
+          updated_by: creator,
+          deleted_at: now,
+          deleted_by: creator
+        });
       return res.json("success");
     } catch (error) {
       return res.status(406).json({type:'error',message:process.env.DEBUG == 1 ?error.message:`Aplikasi sedang mengalami gangguan, silahkan hubungi tim IT`});
@@ -331,17 +367,46 @@ dotenv.config();
           }] */
     // #swagger.description = 'Fungsi mendapatkan data user pada hris'
     try {
-      const { nik,empid:encryptedEmpid } = req.query;
-      const id = encryptedEmpid ? await decrypt(encryptedEmpid) : null;
+      const { nik, empid: encryptedEmpid } = req.query;
+      let id = null;
       
-      let hrisQuery = dbHris("portal.dbo.ptl_hris")
-        .select("Emp_Id","user_email","employee_mgr_pk","user_newid","grade","user_name","map_div_pk","map_dept_pk","bu_id")
-        .where('user_active','Active');
+      // Try to decrypt empid, if it fails, use it as plain text
+      if (encryptedEmpid) {
+        try {
+          id = await decrypt(encryptedEmpid);
+        } catch (decryptError) {
+          // If decryption fails, assume it's already plain text
+          id = encryptedEmpid;
+        }
+      }
+
+      console.log('Data: ' + id);
+      
+      let hrisQuery = dbHris("ptl_hris as a")
+        .select(
+          "a.Emp_Id",
+          "a.user_email",
+          "a.employee_mgr_pk",
+          "a.user_newid",
+          "a.grade",
+          "a.user_name",
+          "a.map_div_pk",
+          "a.map_dept_pk",
+          "a.bu_id",
+          "a.jabatan",
+          "b.bu_name",
+          "c.nama_div",
+          "d.nama_dept"
+        )
+        .leftJoin('master_bu_new as b', 'a.bu_id', 'b.bu_id')
+        .leftJoin('master_div_new as c', 'a.map_div_pk', 'c.id_div')
+        .leftJoin('master_dept as d', 'a.map_dept_pk', 'd.id_dept')
+        .where('a.user_active','Active');
       
       if (nik) {
-        hrisQuery = hrisQuery.where('user_newid', nik);
+        hrisQuery = hrisQuery.where('a.user_newid', nik);
       } else {
-        hrisQuery = hrisQuery.where('Emp_Id', id);
+        hrisQuery = hrisQuery.where('a.Emp_Id', id);
       }
       
       const hris = await hrisQuery.first();
@@ -353,11 +418,10 @@ dotenv.config();
         });
       }else{
         
-        // Check if user already exists in users table (new table)
-        let users = await dbDMS("users")
-        .select("emp_id","name","first_name","email")
+        // Check if user already exists in master_user table
+        let users = await dbDMS("master_user")
+        .select("emp_id","account_nik","account_username")
         .where('emp_id', hris.Emp_Id)
-        .whereNull('deleted_at')
         .first();
         
          if (users && nik){
@@ -367,27 +431,27 @@ dotenv.config();
          });
         }else{
           let [jobHris, direktorat] = await Promise.all([
-               dbHris("portal.dbo.ptl_hris as a")
+               dbHris("ptl_hris as a")
               .select("a.Emp_Id","a.jabatan","a.employee_mgr_pk","a.map_dept_pk","a.map_div_pk","b.nama_div","d.nama_dept","c.map_dir_pk","a.bu_id")
-              .leftJoin('portal.dbo.master_div as b', function() {
+              .leftJoin('master_div as b', function() {
                   this.on('b.id_div', '=', 'a.map_div_pk')
               })
-              .leftJoin('portal.dbo.mapping_dir_div_dept as c', function() {
+              .leftJoin('mapping_dir_div_dept as c', function() {
                   this.on('c.map_dept_pk', '=', 'a.map_dept_pk')
                   .orOn('c.map_div_pk', '=', 'a.map_div_pk')
               })
-              .leftJoin('portal.dbo.master_dept as d', function() {
+              .leftJoin('master_dept as d', function() {
                   this.on('d.id_dept', '=', 'a.map_dept_pk')
               })
               .where ('a.Emp_Id',hris.Emp_Id)
               .first(),
-              dbHris("portal.dbo.master_dept_dir")
+              dbHris("master_dept_dir")
               .select("id_dir","nama_dir","nama_div")
               .where ('id_div',hris.map_div_pk)
               .first(),
               ]);
           if(jobHris && jobHris.map_dir_pk && jobHris.map_dir_pk!='0'){
-            direktorat = await dbHris("portal.dbo.master_dir")
+            direktorat = await dbHris("master_dir")
             .where ('direktorat_pk', jobHris.map_dir_pk)
             .first();
           }
@@ -398,6 +462,10 @@ dotenv.config();
             'empid':empid,
             'name':hris.user_name,
             'email':hris.user_email,
+            'bu_name':hris.bu_name,
+            'nama_div':hris.nama_div,
+            'nama_dept':hris.nama_dept,
+            'jabatan':hris.jabatan,
             'dept_id':hris.map_dept_pk=='0'?null:hris.map_dept_pk,
             'dept_name':hris.map_dept_pk == '0' ? null : (jobHris ? jobHris.nama_dept : null),
             'div_id':hris.map_div_pk=='0'?null:hris.map_div_pk,
@@ -406,8 +474,7 @@ dotenv.config();
             'dir_name':!direktorat?null:direktorat.direktorat_name,
             'grade':hris.grade,
             'bu':hris.bu_id,
-            'nik':hris.user_newid,
-            'jabatan':jobHris?jobHris.jabatan:''
+            'nik':hris.user_newid
           });  
         }
       }
@@ -435,16 +502,16 @@ export const getUserGroup = async (req, res) => {
         'ug.ugrp_user_id',
         'ug.ugrp_group_id',
         'ug.ugrp_bu_id',
-        'u.name',
-        'u.email',
+        'u.account_nik as name',
+        'u.account_email as email',
         'g.grp_name',
         'g.grp_code'
       )
-      .innerJoin('users as u', 'ug.ugrp_user_id', 'u.emp_id')
+      .innerJoin('master_user as u', 'ug.ugrp_user_id', 'u.emp_id')
       .innerJoin('group_aplikasi as g', 'ug.ugrp_group_id', 'g.grp_id')
       .where('ug.ugrp_bu_id', bu_id)
       .whereNull('ug.deleted_at')
-      .orderBy('u.name', 'asc');
+      .orderBy('u.account_nik', 'asc');
     
     res.status(200).json(data);
   } catch (error) {
@@ -460,11 +527,19 @@ export const getActiveUsers = async (req, res) => {
     }] */
   // #swagger.description = 'Get list of active users'
   try {
-    const users = await dbDMS('users')
-      .select('id', 'name', 'first_name', 'email', 'emp_id')
-      .where('activated', true)
-      .whereNull('deleted_at')
-      .orderBy('name', 'asc');
+    const users = await dbDMS('master_user as u')
+      .select(
+        'u.account_nik',
+        'u.account_username',
+        'u.emp_id',
+        'v.user_name as account_name',
+        'v.user_email as account_email',
+        'v.user_active as account_active'
+      )
+      .leftJoin('portal.dbo.ptl_hris as v', 'v.Emp_Id', 'u.emp_id')
+      .whereNull('u.deleted_at')
+      .where('v.user_active', 'Active')
+      .orderBy('u.account_nik', 'asc');
     
     res.status(200).json(users);
   } catch (error) {
@@ -482,9 +557,9 @@ export const getGroups = async (req, res) => {
   try {
     if (req.query.rowsPerPage == null) {
       // Simple list without pagination
-      const groups = await dbDMS('group_aplikasi')
-        .select('grp_id', 'grp_name', 'grp_code')
-        .orderBy('grp_name', 'asc');
+      const groups = await dbDMS('master_role')
+        .select('role_id', 'role_name')
+        .orderBy('role_name', 'asc');
       
       res.status(200).json(groups);
     } else {
@@ -493,12 +568,11 @@ export const getGroups = async (req, res) => {
       const columnSort = req.query.sortBy === "desc" ? "grp_name asc" : `${req.query.sortBy} ${sorting}`;
       const page = Math.floor(req.query.page);
       
-      const response = await dbDMS('group_aplikasi')
-        .select('grp_id', 'grp_name', 'grp_code')
+      const response = await dbDMS('master_role')
+        .select('role_id', 'role_name')
         .where((query) => {
           if (req.query.filter != null) {
-            query.orWhere("grp_name", "like", `%${req.query.filter}%`);
-            query.orWhere("grp_code", "like", `%${req.query.filter}%`);
+            query.orWhere("role_name", "like", `%${req.query.filter}%`);
           }
         })
         .orderByRaw(columnSort)
@@ -608,30 +682,54 @@ export const getUsers = async (req, res) => {
   /* #swagger.security = [{
           "bearerAuth": []
     }] */
-  // #swagger.description = 'Get all users from users table'
+  // #swagger.description = 'Get all users from master_user table with data from ptl_hris'
   try {
     if (req.query.rowsPerPage == null) {
       // Simple list without pagination
-      const users = await dbDMS('users')
-        .select('id', 'name', 'first_name', 'email', 'emp_id', 'activated')
-        .whereNull('deleted_at')
-        .orderBy('name', 'asc');
+      const users = await dbDMS('master_user as u')
+        .select(
+          'u.account_nik',
+          'u.account_username',
+          'u.emp_id',
+          'u.account_bu',
+          'u.account_type',
+          'v.user_name as account_name',
+          'v.user_email as account_email',
+          'v.user_active as account_active',
+          'v.jabatan as account_jabatan'
+        )
+        .leftJoin('portal.dbo.ptl_hris as v', function() {
+          this.on(dbDMS.raw('v.Emp_Id COLLATE SQL_Latin1_General_CP1_CI_AS'), '=', dbDMS.raw('u.emp_id COLLATE SQL_Latin1_General_CP1_CI_AS'));
+        })
+        .orderBy('u.account_nik', 'asc');
       
       res.status(200).json(users);
     } else {
       // Paginated list
       const sorting = req.query.descending === "true" ? "desc" : "asc";
-      const columnSort = req.query.sortBy === "desc" ? "name asc" : `${req.query.sortBy} ${sorting}`;
+      const columnSort = req.query.sortBy === "desc" ? "u.account_nik asc" : `u.${req.query.sortBy} ${sorting}`;
       const page = Math.floor(req.query.page);
       
-      const response = await dbDMS('users')
-        .select('id', 'name', 'first_name', 'email', 'emp_id', 'activated')
-        .whereNull('deleted_at')
+      const response = await dbDMS('master_user as u')
+        .select(
+          'u.account_nik',
+          'u.account_username',
+          'u.emp_id',
+          'u.account_bu',
+          'u.account_type',
+          'v.user_name as account_name',
+          'v.user_email as account_email',
+          'v.user_active as account_active',
+          'v.jabatan as account_jabatan'
+        )
+        .leftJoin('portal.dbo.ptl_hris as v', function() {
+          this.on(dbDMS.raw('v.Emp_Id COLLATE SQL_Latin1_General_CP1_CI_AS'), '=', dbDMS.raw('u.emp_id COLLATE SQL_Latin1_General_CP1_CI_AS'));
+        })
         .where((query) => {
           if (req.query.filter != null) {
-            query.orWhere("name", "like", `%${req.query.filter}%`);
-            query.orWhere("first_name", "like", `%${req.query.filter}%`);
-            query.orWhere("email", "like", `%${req.query.filter}%`);
+            query.orWhere("u.account_nik", "like", `%${req.query.filter}%`);
+            query.orWhere("u.emp_id", "like", `%${req.query.filter}%`);
+            query.orWhere("v.user_name", "like", `%${req.query.filter}%`);
           }
         })
         .orderByRaw(columnSort)
@@ -654,55 +752,64 @@ export const saveUserData = async (req, res) => {
   /* #swagger.security = [{
           "bearerAuth": []
     }] */
-  // #swagger.description = 'Save or update user in users table'
+  // #swagger.description = 'Save or update user in master_user table'
   const trx = await dbDMS.transaction();
   try {
-    const { id, nik, first_name, email, emp_id, activated, creator } = req.body;
+    const { nik, account_name, account_email, emp_id, account_active, creator, role_id } = req.body;
     const creator_decrypt = decrypt(creator);
     const empid_decrypt = decrypt(emp_id);
     const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
     
-    if (id) {
+    // Check if user already exists by NIK
+    const existing = await trx('master_user')
+      .where('account_nik', nik)
+      .first();
+
+    const ptl_hris = await trx('portal.dbo.ptl_hris')
+      .where('user_newid', nik)
+      .first();
+    
+    if (existing) {
       // Update existing user
-      await trx('users')
-        .where('id', id)
+      await trx('master_user')
+        .where('account_nik', nik)
         .update({
-          name: nik,
-          first_name: first_name,
-          email: email,
+          // account_name: account_name,
+          // account_email: account_email,
           emp_id: empid_decrypt,
-          activated: activated,
+          // account_active: account_active || 'Active',
+          account_bu: ptl_hris.bu_id,
+          account_type: role_id,
           updated_at: now,
+          updated_by: creator_decrypt,
         });
     } else {
-      // Check if user already exists
-      const existing = await trx('users')
-        .where('name', nik)
-        .orWhere('emp_id', empid_decrypt)
-        .whereNull('deleted_at')
+      // Check if emp_id already exists
+      const existingEmpId = await trx('master_user')
+        .where('emp_id', empid_decrypt)
         .first();
       
-      if (existing) {
+      if (existingEmpId) {
         await trx.rollback();
         return res.status(406).json({
           type: 'error',
-          message: 'User with this NIK or Employee ID already exists',
+          message: 'User with this Employee ID already exists',
         });
       }
       
-      // Get max ID
-      const maxIdResult = await trx('users').max('id as maxId').first();
-      const newId = (maxIdResult.maxId || 0) + 1;
-      
       // Insert new user
-      await trx('users').insert({
-        id: newId,
-        name: nik,
-        first_name: first_name,
-        email: email,
+      await trx('master_user').insert({
+        account_nik: nik,
+        account_username: nik, // Duplicate NIK as username
+        // account_name: account_name,
+        // account_email: account_email,
         emp_id: empid_decrypt,
-        activated: activated !== undefined ? activated : true,
+        // account_active: account_active || 'Active',
+        account_bu: ptl_hris.bu_id,
+        account_type: role_id,
+        created_by: creator_decrypt,
         created_at: now,
+        updated_by: creator_decrypt,
         updated_at: now,
       });
     }
@@ -723,15 +830,16 @@ export const toggleUserActivation = async (req, res) => {
     }] */
   // #swagger.description = 'Toggle user activation status'
   try {
-    const { id, activated, creator } = req.body;
+    const { nik, account_active, creator } = req.body;
     const creator_decrypt = decrypt(creator);
     const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
     
-    await dbDMS('users')
-      .where('id', id)
+    await dbDMS('master_user')
+      .where('account_nik', nik)
       .update({
-        activated: activated,
+        account_active: account_active,
         updated_at: now,
+        updated_by: creator_decrypt,
       });
     
     return res.json("success");
@@ -771,6 +879,24 @@ export const getUserGroupsByUser = async (req, res) => {
     return res.status(406).json(getErrorResponse(error));
   }
 }
+
+export const getRoles = async (req, res) => {
+  // #swagger.tags = ['User']
+  /* #swagger.security = [{
+          "bearerAuth": []
+    }] */
+  // #swagger.description = 'Get list of roles'
+  try {
+    const roles = await dbDMS('master_role')
+      .select('role_id', 'role_name')
+      .orderBy('role_name', 'asc');
+    
+    res.status(200).json(roles);
+  } catch (error) {
+    logger(error, 'GET /getRoles', req.query);
+    return res.status(406).json(getErrorResponse(error));
+  }
+};
 
 export const saveGroup = async (req, res) => {
   // #swagger.tags = ['User']

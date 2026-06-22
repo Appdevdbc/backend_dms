@@ -1,65 +1,54 @@
 import dotenv from "dotenv";  
 dotenv.config();  
 import jwt from "jsonwebtoken";  
-import { dbHris,db, dbDMS } from "../config/db.js";  
+import { dbDMS, dbHris } from "../config/db.js";  
 
-// Cache for throw_mstr data to avoid repeated DB queries
-const throwCache = new Map();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+// Public routes that don't require authentication
+const PUBLIC_ROUTES = [
+  { method: 'POST', path: '/login' },
+  { method: 'POST', path: '/wjs/auth/login' },
+  { method: 'POST', path: '/login_portal' },
+  { method: 'POST', path: '/refresh_token' }
+];
 
-const getThrowConfig = async (method, path) => {
-  try {
-    const key = `${method}:${path}`;
-    const cached = throwCache.get(key);
-    
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      return cached.value;
-    }
-    
-    const result = await dbDMS("throw_mstr")
-      .where("throw_method", method)
-      .where("throw_path", path)
-      .select("throw_method")
-      .first();
-
-    const value = !!result;
-    throwCache.set(key, { value, timestamp: Date.now() });
-    return value;
-  } catch (error) {
-    console.error("getThrowConfig error:", error.message);
-    return false;
-  }
+/**
+ * Check if the current request is a public route
+ */
+const isPublicRoute = (method, path) => {
+  return PUBLIC_ROUTES.some(
+    route => route.method === method && route.path === path
+  );
 };
 
   
 export const cekToken = async (req, res, next) => {  
   try {  
-    const isPublicRoute = await getThrowConfig(req.method, req.path);
+    // Check if this is a public route (no token required)
+    if (isPublicRoute(req.method, req.path)) {  
+      return next();  
+    }
     
-    if (isPublicRoute) {  
+    // Protected route - verify token
+    let token;  
+
+    if (req.headers['accept'] === 'text/event-stream') {   
+      token = req.query.token;
+    } else {  
+      token = req.headers.authorization?.split(' ')[1];  
+    }  
+
+    if (!token) return res.status(401).json({ message: "Invalid Token" });
+
+    const decoded = jwt.verify(token, process.env.TOKEN);  
+    const response = await dbHris("ptl_hris")  
+      .where("Emp_Id", decoded.user)  
+      .where("user_active", "Active")  
+      .first();
+  
+    if (response) {  
       return next();  
     } else {  
-      let token;  
-
-      if (req.headers['accept'] === 'text/event-stream') {   
-        token = req.query.token;
-      } else {  
-        token = req.headers.authorization?.split(' ')[1];  
-      }  
-  
-      if (!token) return res.status(401).json({ message: "Invalid Token" });
-
-      const decoded = jwt.verify(token, process.env.TOKEN);  
-      const response = await dbHris("ptl_hris")  
-        .where("Emp_Id", decoded.user)  
-        .where("user_active", "Active")  
-        .first();
-    
-      if (response) {  
-        return next();  
-      } else {  
-        return res.status(401).json({ message: "Token sudah tidak sesuai atau expired", decoded });  
-      }  
+      return res.status(401).json({ message: "Token sudah tidak sesuai atau expired", decoded });  
     }  
   } catch (error) {  
     console.error("cekToken error:", error.message);  

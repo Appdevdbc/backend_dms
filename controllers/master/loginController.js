@@ -1,7 +1,7 @@
 //import { Menu } from "../model/menu.js";
 //import { Users } from "../model/users.js";
 
-import { dbHris, db, dbDMS } from "../../config/db.js";
+import { db, dbDMS, dbHris, dbPortal } from "../../config/db.js";
 import { decrypt, encrypt, getErrorResponse, mySimpleCrypt } from "../../helpers/utils.js";
 import { logger } from "../../helpers/logger.js";
 import jwt from "jsonwebtoken";
@@ -20,24 +20,19 @@ export const login = async (req, res) => {
   try {
     const { nik, pass, url } = req.body;
     
-    // Query users table (WJS) - name field stores NIK
-    const users = await dbDMS("users")
-      .select("id", "name", "first_name", "email", "activated", "emp_id")
-      .where('name', nik)
+    // Query master_user table by NIK
+    const users = await dbDMS("master_user")
+      .select("account_nik", "account_username", "emp_id", "account_bu")
+      .where('account_nik', nik)
       .first();
       
     if (!users) return res.status(406).json({type:'error',message:`User ${nik} belum terdaftar pada aplikasi ini`});
 
-    // Check if user is active (activated bit type: true/false)
-    if (!users.activated) {
-      return res.status(406).json({type:'error',message:`User ${nik} tidak aktif`});
-    }
-
     // Lookup in portal using emp_id if exists, otherwise use NIK
-    const lookupValue = users.emp_id || nik;
+    const lookupValue = users.emp_id || users.account_nik;
     
-    const hris = await dbHris("portal.dbo.ptl_hris as a")
-              .select("a.Emp_Id","a.user_pass","a.user_newid","a.grade","a.jabatan","a.employee_mgr_pk","a.map_dept_pk","a.map_div_pk","a.bu_id","b.nama_div","d.nama_dept","c.map_dir_pk")
+    const hris = await dbHris("ptl_hris as a")
+              .select("a.Emp_Id","a.user_pass","a.user_newid","a.user_name","a.grade","a.jabatan","a.employee_mgr_pk","a.map_dept_pk","a.map_div_pk","a.bu_id","b.nama_div","d.nama_dept","c.map_dir_pk")
               .leftJoin('master_div as b', function() {
                   this.on('b.id_div', '=', 'a.map_div_pk')
               })
@@ -53,8 +48,7 @@ export const login = async (req, res) => {
               .first()
     
     if (!hris) {
-      await dbDMS("users").where('id', users.id).update({activated: false});
-      return res.status(406).json({type:'error',message:`User ${nik} sudah tidak aktif`});
+      return res.status(406).json({type:'error',message:`User ${nik} sudah tidak aktif di portal`});
     }
 
     const direktorat = await dbHris("master_dir")
@@ -65,20 +59,27 @@ export const login = async (req, res) => {
       return res.status(406).json({type:'error',message:`NIK/Password tidak sesuai`});
     }
 
-    const [, resPortal] = await Promise.all([
-      dbDMS("users").where('id', users.id).update({
-        name: hris.user_newid, // NIK
-        emp_id: hris.Emp_Id
-      }),
-      dbHris("ptl_policy").where("id",0).first()
-    ]);
+    // Update emp_id in master_user if it was NULL
+    const updatePromises = [];
+    if (!users.emp_id) {
+      updatePromises.push(
+        dbDMS("master_user").where('account_nik', users.account_nik).update({
+          emp_id: hris.Emp_Id
+        })
+      );
+    }
+    
+    updatePromises.push(dbPortal("ptl_policy").where("id",0).first());
+    
+    const results = await Promise.all(updatePromises);
+    const resPortal = results[results.length - 1]; // Last result is always ptl_policy
 
     const token = jwt.sign({user: hris.Emp_Id}, process.env.TOKEN, {expiresIn: resPortal?.idle_time || 3600000});
     
     // Log access
     await dbDMS("log_akses").insert({
       empid: hris.Emp_Id,
-      nik: hris.user_newid,
+      nik: users.account_nik,
       status: "login",
       keterangan: "user",
       nama_url: url || '/wjs',
@@ -88,13 +89,13 @@ export const login = async (req, res) => {
     res.status(200).json({
       message: "success",
       data: {
-        nama: users.first_name,
+        nama: hris.user_name, // Name from portal
         empid: encrypt(hris.Emp_Id),
-        nik: hris.user_newid,
+        nik: users.account_nik,
         grade: hris.grade,
         jabatan: hris.jabatan,
-        domain: hris.bu_id, // BU ID as domain for styling
-        bu_id: hris.bu_id,
+        domain: users.account_bu || hris.bu_id, // BU from master_user, fallback to portal
+        bu_id: users.account_bu || hris.bu_id,
         dept_id: hris.map_dept_pk,
         dept_name: hris.nama_dept,
         div_id: hris.map_div_pk,
@@ -149,15 +150,15 @@ export const logout = async (req, res) => {
     const { empid: encryptedEmpid, note, url } = req.body.params;
     const empid = decrypt(encryptedEmpid);
     
-    const users = await dbDMS("users")
-      .select("emp_id", "name", "first_name")
+    const users = await dbDMS("master_user")
+      .select("emp_id", "account_nik", "account_username")
       .where('emp_id', empid)
       .first();
     
     if (users) {
       await dbDMS("log_akses").insert({
         empid: users.emp_id,
-        nik: users.name,
+        nik: users.account_nik,
         status: "logout",
         keterangan: note,
         nama_url: url,

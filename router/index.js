@@ -7,6 +7,7 @@ import authRouter from '../routes/auth.js';
 import spkRouter from './spk.js';
 import reportRouter from './report.js';
 import syncRouter from './sync.js';
+import transactionRouter from './transaction.js';
 //end class definition
 
 //route definition
@@ -62,6 +63,7 @@ router.use('/wjs/auth',authRouter)
 router.use('/',spkRouter)
 router.use('/',reportRouter)
 router.use('/api/v1',syncRouter)
+router.use('/transaction',transactionRouter)
 
 
 export default router;

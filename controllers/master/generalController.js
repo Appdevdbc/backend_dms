@@ -687,14 +687,18 @@ export const listCollectionMenu = async (req, res) => {
     const empid =  decrypt(empidDecrypt);
     
     // Get user's groups using new user_group table
-    const userGroups = await dbDMS('user_group')
-      .select('ugrp_group_id')
-      .where({'ugrp_user_id':empid,'ugrp_bu_id':domain})
-      .whereNull('deleted_at');
+    // const userGroups = await dbDMS('user_group')
+    //   .select('ugrp_group_id')
+    //   .where({'ugrp_user_id':empid,'ugrp_bu_id':domain})
+    //   .whereNull('deleted_at');
+
+    const userGroups = await dbDMS('master_user')
+      .select('account_type')
+      .where({'emp_id':empid});
       
     if(userGroups.length === 0) return res.status(200).json([]);
     
-    const groupIds = userGroups.map(g => g.ugrp_group_id);
+    const groupIds = userGroups.map(g => g.account_type);
     
     const dtMenu = await dbDMS("collection_det")
       .distinct('mst_menu.*')

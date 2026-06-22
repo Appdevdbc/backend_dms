@@ -484,3 +484,56 @@ export const generateToken = (length = 40) => {
   }
   return token;
 };
+
+/**
+ * Safely extract array from SQL Server raw query result
+ * SQL Server's knex raw queries can return results in different formats:
+ * - Direct array: [{ col: 'val' }, ...]
+ * - Nested array: [[{ col: 'val' }, ...]]
+ * - Recordset object: { recordset: [{ col: 'val' }, ...], ... }
+ * 
+ * @param {*} result - Raw query result from dbDMS.raw() or dbHris.raw()
+ * @returns {Array} - Extracted array, or empty array if extraction fails
+ * 
+ * @example
+ * const result = await dbDMS.raw('SELECT * FROM table WHERE id = ?', [id]);
+ * const items = extractArrayFromRaw(result);
+ * const filtered = items.filter(item => item.status === 'active');
+ */
+export const extractArrayFromRaw = (result) => {
+  // Direct array
+  if (Array.isArray(result) && result.length > 0 && typeof result[0] === 'object' && !Array.isArray(result[0])) {
+    return result;
+  }
+  
+  // Nested array (most common for SQL Server)
+  if (result && Array.isArray(result[0])) {
+    return result[0];
+  }
+  
+  // Recordset object (alternative SQL Server format)
+  if (result && result.recordset && Array.isArray(result.recordset)) {
+    return result.recordset;
+  }
+  
+  // Fallback: empty array
+  return [];
+};
+
+/**
+ * Safely extract single object from SQL Server raw query result
+ * Used for queries that return a single row (e.g., COUNT, aggregates)
+ * 
+ * @param {*} result - Raw query result from dbDMS.raw() or dbHris.raw()
+ * @param {Object} defaultValue - Default object to return if extraction fails
+ * @returns {Object} - Extracted object, or defaultValue
+ * 
+ * @example
+ * const result = await dbDMS.raw('SELECT COUNT(*) as total FROM table');
+ * const stats = extractObjectFromRaw(result, { total: 0 });
+ * console.log(stats.total);
+ */
+export const extractObjectFromRaw = (result, defaultValue = {}) => {
+  const array = extractArrayFromRaw(result);
+  return array.length > 0 ? array[0] : defaultValue;
+};
