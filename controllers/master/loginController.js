@@ -19,63 +19,72 @@ export const login = async (req, res) => {
   // #swagger.description = 'Fungsi untuk validasi login'
   try {
     const { nik, pass, url } = req.body;
-    
+
     // Query master_user table by NIK
-    const users = await dbDMS("master_user")
-      .select("account_nik", "account_username", "emp_id", "account_bu")
-      .where('account_nik', nik)
+    const users = await dbDMS("mUser")
+      .select("user_nik", "user_id", "user_empid", "user_domain")
+      .where('user_nik', nik)
       .first();
-      
-    if (!users) return res.status(406).json({type:'error',message:`User ${nik} belum terdaftar pada aplikasi ini`});
+
+    if (!users) return res.status(406).json({ type: 'error', message: `User ${nik} belum terdaftar pada aplikasi ini` });
 
     // Lookup in portal using emp_id if exists, otherwise use NIK
-    const lookupValue = users.emp_id || users.account_nik;
+    const lookupValue = users.user_empid || users.user_nik;
+
+    // Build query
+    const hrisQuery = dbHris("ptl_hris as a")
+      .select("a.Emp_Id", "a.user_pass", "a.user_newid", "a.user_name", "a.grade", "a.jabatan", "a.employee_mgr_pk", "a.map_dept_pk", "a.map_div_pk", "a.bu_id", "b.nama_div", "d.nama_dept", "c.map_dir_pk")
+      .leftJoin('master_div as b', function () {
+        this.on('b.id_div', '=', 'a.map_div_pk')
+      })
+      .leftJoin('mapping_dir_div_dept as c', function () {
+        this.on('c.map_dept_pk', '=', 'a.map_dept_pk')
+          .orOn('c.map_div_pk', '=', 'a.map_div_pk')
+      })
+      .leftJoin('master_dept as d', function () {
+        this.on('d.id_dept', '=', 'a.map_dept_pk')
+      })
+      .where('user_active', 'Active')
+      .where('Emp_Id', lookupValue);
+
+    // Log SQL query BEFORE executing
+    console.log('=== Login HRIS Query ===');
+    console.log(hrisQuery.toSQL().toNative());
+    console.log('Lookup Value:', lookupValue);
+    console.log('========================');
     
-    const hris = await dbHris("ptl_hris as a")
-              .select("a.Emp_Id","a.user_pass","a.user_newid","a.user_name","a.grade","a.jabatan","a.employee_mgr_pk","a.map_dept_pk","a.map_div_pk","a.bu_id","b.nama_div","d.nama_dept","c.map_dir_pk")
-              .leftJoin('master_div as b', function() {
-                  this.on('b.id_div', '=', 'a.map_div_pk')
-              })
-              .leftJoin('mapping_dir_div_dept as c', function() {
-                  this.on('c.map_dept_pk', '=', 'a.map_dept_pk')
-                  .orOn('c.map_div_pk', '=', 'a.map_div_pk')
-              })
-              .leftJoin('master_dept as d', function() {
-                  this.on('d.id_dept', '=', 'a.map_dept_pk')
-              })
-              .where('user_active','Active')
-              .where('Emp_Id', lookupValue)
-              .first()
-    
+    // Execute query
+    const hris = await hrisQuery.first();
+
     if (!hris) {
-      return res.status(406).json({type:'error',message:`User ${nik} sudah tidak aktif di portal`});
+      return res.status(406).json({ type: 'error', message: `User ${nik} sudah tidak aktif di portal` });
     }
 
     const direktorat = await dbHris("master_dir")
-            .where ('direktorat_pk', hris.map_dir_pk)
-            .first();
+      .where('direktorat_pk', hris.map_dir_pk)
+      .first();
 
     if (process.env.ENVIRONMENT === 'PRODUCTION' && hris.user_pass !== await mySimpleCrypt(pass)) {
-      return res.status(406).json({type:'error',message:`NIK/Password tidak sesuai`});
+      return res.status(406).json({ type: 'error', message: `NIK/Password tidak sesuai` });
     }
 
     // Update emp_id in master_user if it was NULL
     const updatePromises = [];
     if (!users.emp_id) {
       updatePromises.push(
-        dbDMS("master_user").where('account_nik', users.account_nik).update({
-          emp_id: hris.Emp_Id
+        dbDMS("mUser").where('user_nik', users.user_nik).update({
+          user_empid: hris.Emp_Id
         })
       );
     }
-    
-    updatePromises.push(dbPortal("ptl_policy").where("id",0).first());
-    
+
+    updatePromises.push(dbPortal("ptl_policy").where("id", 0).first());
+
     const results = await Promise.all(updatePromises);
     const resPortal = results[results.length - 1]; // Last result is always ptl_policy
 
-    const token = jwt.sign({user: hris.Emp_Id}, process.env.TOKEN, {expiresIn: resPortal?.idle_time || 3600000});
-    
+    const token = jwt.sign({ user: hris.Emp_Id }, process.env.TOKEN, { expiresIn: resPortal?.idle_time || 3600000 });
+
     // Log access
     await dbDMS("log_akses").insert({
       empid: hris.Emp_Id,
@@ -84,18 +93,18 @@ export const login = async (req, res) => {
       keterangan: "user",
       nama_url: url || '/wjs',
     });
-    
+
     // Return response with portal organizational data
     res.status(200).json({
       message: "success",
       data: {
         nama: hris.user_name, // Name from portal
         empid: encrypt(hris.Emp_Id),
-        nik: users.account_nik,
+        nik: users.user_nik,
         grade: hris.grade,
         jabatan: hris.jabatan,
-        domain: users.account_bu || hris.bu_id, // BU from master_user, fallback to portal
-        bu_id: users.account_bu || hris.bu_id,
+        domain: users.user_domain || hris.bu_id, // BU from master_user, fallback to portal
+        bu_id: users.user_domain || hris.bu_id,
         dept_id: hris.map_dept_pk,
         dept_name: hris.nama_dept,
         div_id: hris.map_div_pk,
@@ -111,7 +120,7 @@ export const login = async (req, res) => {
   } catch (error) {
     logger(error, 'POST /login', req.body);
     return res.status(406).json(getErrorResponse(error));
-  } 
+  }
 };
 
 export const refresh_token = async (req, res) => {
@@ -134,14 +143,14 @@ export const refresh_token = async (req, res) => {
   } catch (error) {
     logger(error, 'POST /refresh_token', req.body);
     return res.status(406).json({
-      type:'error',
-      message: process.env.DEBUG == 1 ?error.message:`Aplikasi sedang mengalami gangguan, silahkan hubungi tim IT`,
-  });
+      type: 'error',
+      message: process.env.DEBUG == 1 ? error.message : `Aplikasi sedang mengalami gangguan, silahkan hubungi tim IT`,
+    });
   }
 };
 
 export const logout = async (req, res) => {
-   // #swagger.tags = ['User']
+  // #swagger.tags = ['User']
   /* #swagger.security = [{
                 "bearerAuth": []
         }] */
@@ -149,12 +158,12 @@ export const logout = async (req, res) => {
   try {
     const { empid: encryptedEmpid, note, url } = req.body.params;
     const empid = decrypt(encryptedEmpid);
-    
-    const users = await dbDMS("master_user")
-      .select("emp_id", "account_nik", "account_username")
-      .where('emp_id', empid)
+
+    const users = await dbDMS("mUser")
+      .select("user_empid", "user_nik", "user_name")
+      .where('user_empid', empid)
       .first();
-    
+
     if (users) {
       await dbDMS("log_akses").insert({
         empid: users.emp_id,
@@ -164,9 +173,9 @@ export const logout = async (req, res) => {
         nama_url: url,
       });
     }
-    
+
     return res.json("sukses");
-  }catch (error) {
+  } catch (error) {
     logger(error, 'POST /logout', req.body);
     return res.status(406).json(getErrorResponse(error));
   }
@@ -174,96 +183,96 @@ export const logout = async (req, res) => {
 
 
 export const login_portal = async (req, res) => {
-  
+
   // #swagger.tags = ['User']
   /* #swagger.security = [{
               "bearerAuth": []
       }] */
   // #swagger.description = 'Fungsi untuk validasi login via portal'
- try {
+  try {
     let users = await db("users")
-   .select("user_id","user_nik","user_name","user_domain","user_site","user_role")
-   .where ('user_id',req.body.nik)
-   .first();
-   //return res.status(200).json(users);
-    if (!users){
-    return res.status(406).json({
-      type:'error',
-      message: `User belum terdaftar pada aplikasi ini`,
-    });
-   }
-   
-   let hris = await dbHris("portal.dbo.ptl_hris")
-   .select("Emp_Id","user_pass",'user_newid','grade','jabatan')
-   .where ('Emp_Id',users.user_id)
-   .where('user_active','Active')
-   .first();
-   if (!hris){
-    //update status user
+      .select("user_id", "user_nik", "user_name", "user_domain", "user_site", "user_role")
+      .where('user_id', req.body.nik)
+      .first();
+    //return res.status(200).json(users);
+    if (!users) {
+      return res.status(406).json({
+        type: 'error',
+        message: `User belum terdaftar pada aplikasi ini`,
+      });
+    }
+
+    let hris = await dbHris("portal.dbo.ptl_hris")
+      .select("Emp_Id", "user_pass", 'user_newid', 'grade', 'jabatan')
+      .where('Emp_Id', users.user_empid)
+      .where('user_active', 'Active')
+      .first();
+    if (!hris) {
+      //update status user
+      await db("users")
+        .where('user_id', req.body.nik)
+        .update({
+          'user_active': 0
+        });
+
+      return res.status(406).json({
+        type: 'error',
+        message: `User sudah tidak aktif`,
+      });
+    } else {
+      await db("users")
+        .where('user_id', req.body.nik)
+        .update({
+          'user_active': 1
+        });
+    }
+
+    let jabatan = hris.jabatan;
+
     await db("users")
-    .where ('user_id',req.body.nik)
-    .update({
-      'user_active':0
+      .where('user_id', req.body.nik)
+      .update({
+        'user_nik': hris.user_newid,
+        'user_grade': hris.grade,
+        'user_jabatan': jabatan
+      });
+
+    let unit = await db("domain")
+      .select("domain_shortname")
+      .where('domain_code', users.user_domain)
+      .first();
+
+    const resPortal = await dbHris("ptl_policy").where("id", 0).first();
+    let token = jwt.sign({ user: users.user_id }, process.env.TOKEN, {
+      expiresIn: resPortal.idle_time,
     });
 
+    await dbDMS("log_akses").insert({
+      empid: users.user_id,
+      nik: hris.user_newid,
+      status: "login",
+      keterangan: "user",
+      nama_url: req.body.url,
+    });
+    res.status(200).json({
+      message: "success",
+      data: {
+        nama: users.user_name,
+        unit: unit.domain_shortname,
+        empid: encrypt(users.user_id),
+        domain: users.user_domain,
+        nik: users.user_nik,
+        site: users.user_site,
+        token: token,
+        role: encrypt(users.user_role || ''),
+        idle: resPortal.idle_time,
+      },
+    });
+
+  } catch (error) {
     return res.status(406).json({
-      type:'error',
-      message: `User sudah tidak aktif`,
+      type: 'error',
+      message: process.env.DEBUG == 1 ? error.message : `Aplikasi sedang mengalami gangguan, silahkan hubungi tim IT`,
     });
-   }else{
-    await db("users")
-    .where ('user_id',req.body.nik)
-    .update({
-      'user_active':1
-    });
-   }
-   
-   let jabatan = hris.jabatan;
-
-   await db("users")
-   .where ('user_id',req.body.nik)
-   .update({
-     'user_nik':hris.user_newid,
-     'user_grade':hris.grade,
-     'user_jabatan':jabatan
-   });
-  
-   let unit = await db("domain")
-   .select("domain_shortname")
-   .where ('domain_code',users.user_domain)
-   .first();
-
-   const resPortal = await dbHris("ptl_policy").where("id", 0).first();
-   let token = jwt.sign({ user: users.user_id }, process.env.TOKEN, {
-     expiresIn: resPortal.idle_time,
-   });
-  
-   await dbDMS("log_akses").insert({
-    empid:users.user_id,
-    nik: hris.user_newid,
-    status: "login",
-    keterangan: "user",
-    nama_url:req.body.url,
-  });
-  res.status(200).json({
-    message: "success",
-    data: {
-      nama: users.user_name,
-      unit: unit.domain_shortname,
-      empid: encrypt(users.user_id),
-      domain: users.user_domain,
-      nik:users.user_nik,
-      site:users.user_site,
-      token: token,
-      role:encrypt(users.user_role || ''),
-      idle: resPortal.idle_time,
-    },
-  });
-   
-} catch (error) {
-  return res.status(406).json({
-    type:'error',
-    message: process.env.DEBUG == 1 ?error.message: `Aplikasi sedang mengalami gangguan, silahkan hubungi tim IT` ,
-});
-} 
+  }
 };

@@ -24,6 +24,7 @@ import {
   submitFeedback,
   confirmClosingItem
 } from '../controllers/Transaction/confirmClosingController.js';
+import { getDeptFiles } from '../controllers/Transaction/deptController.js';
 
 const router = express.Router();
 
@@ -85,5 +86,8 @@ router.post('/reopenRequest/:temuan_id', reopenRequest);
 router.get('/getFeedbackData/:listdet_id', getFeedbackData);
 router.post('/submitFeedback', upload.any(), submitFeedback);
 router.post('/confirmClosingItem', upload.any(), confirmClosingItem);
+
+// Dept File Browser Routes
+router.get('/getDeptFiles', getDeptFiles);
 
 export default router;

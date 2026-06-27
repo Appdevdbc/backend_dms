@@ -79,6 +79,24 @@ import { listGroupDepartments, getAvailableDepartments, getGroupDepartments, sav
 import { listTJKN, listTJKNEmployee, getMonths, saveTJKN, saveTJKNEmployee, deleteTJKN, deleteTJKNEmployee } from "../controllers/master/tjknController.js";
 import { listEmployees, searchEmployeeByNIK, getSections, getPositions, saveEmployee, deleteEmployee, syncEmployeesFromPortal } from "../controllers/master/employeeController.js";
 import { listBreakTimes, updateBreakTime } from "../controllers/master/breakController.js";
+import { listMenu, getMainMenus, saveMenu, deleteMenu, getMenuById } from "../controllers/master/menuController.js";
+import { listPlant, savePlant, deletePlant, getPlantById } from "../controllers/master/plantController.js";
+import { listDept, saveDept, deleteDept, getDeptById, getSelectDivisi } from "../controllers/master/deptController.js";
+import { 
+  listFolder, saveFolder, deleteFolder, getFolderById,
+  listSubFolder1, saveSubFolder1, deleteSubFolder1,
+  listSubFolder2, saveSubFolder2, deleteSubFolder2,
+  getSelectDept, getSelectFolder, getSelectSubFolder1
+} from "../controllers/master/folderController.js";
+import { 
+  listContent, saveContent, deleteContent, getContentById,
+  getSelectKlasifikasi, getSelectSubFolder1 as getSelectSubFolder1Content, 
+  getSelectSubFolder2, toggleContentStatus
+} from "../controllers/master/contentController.js";
+import {
+  getUsersAkses, getMainMenusAkses, getSubMenusAkses, getFoldersAkses,
+  getUserAksesDetail, saveUserAkses
+} from "../controllers/master/aksesController.js";
 
 //end class definition
 
@@ -258,6 +276,59 @@ router.post('/syncEmployeesFromPortal', syncEmployeesFromPortal);
 //BreakController
 router.get('/listBreakTimes', listBreakTimes);
 router.post('/updateBreakTime', updateBreakTime);
+
+//MenuController
+router.get('/listMenu', listMenu);
+router.get('/getMainMenus', getMainMenus);
+router.post('/saveMenu', saveMenu);
+router.post('/deleteMenu', deleteMenu);
+router.get('/getMenuById', getMenuById);
+
+//PlantController
+router.get('/listPlant', listPlant);
+router.post('/savePlant', savePlant);
+router.post('/deletePlant', deletePlant);
+router.get('/getPlantById', getPlantById);
+
+//DeptController
+router.get('/listDept', listDept);
+router.post('/saveDept', saveDept);
+router.post('/deleteDept', deleteDept);
+router.get('/getDeptById', getDeptById);
+router.get('/getSelectDivisi', getSelectDivisi);
+
+//FolderController
+router.get('/listFolder', listFolder);
+router.post('/saveFolder', saveFolder);
+router.post('/deleteFolder', deleteFolder);
+router.get('/getFolderById', getFolderById);
+router.get('/listSubFolder1', listSubFolder1);
+router.post('/saveSubFolder1', saveSubFolder1);
+router.post('/deleteSubFolder1', deleteSubFolder1);
+router.get('/listSubFolder2', listSubFolder2);
+router.post('/saveSubFolder2', saveSubFolder2);
+router.post('/deleteSubFolder2', deleteSubFolder2);
+router.get('/getSelectDept', getSelectDept);
+router.get('/getSelectFolder', getSelectFolder);
+router.get('/getSelectSubFolder1', getSelectSubFolder1);
+
+//ContentController
+router.get('/listContent', listContent);
+router.post('/saveContent', saveContent);
+router.post('/deleteContent', deleteContent);
+router.get('/getContentById', getContentById);
+router.get('/getSelectKlasifikasi', getSelectKlasifikasi);
+router.get('/getSelectSubFolder1Content', getSelectSubFolder1Content);
+router.get('/getSelectSubFolder2', getSelectSubFolder2);
+router.post('/toggleContentStatus', toggleContentStatus);
+
+//AksesController
+router.get('/getUsersAkses', getUsersAkses);
+router.get('/getMainMenusAkses', getMainMenusAkses);
+router.get('/getSubMenusAkses', getSubMenusAkses);
+router.get('/getFoldersAkses', getFoldersAkses);
+router.get('/getUserAksesDetail', getUserAksesDetail);
+router.post('/saveUserAkses', saveUserAkses);
 
 export default router;
 

@@ -22,9 +22,9 @@ export const login = async (req, res) => {
     const { nik, password } = req.body;
 
     // Get user from master_user table by NIK
-    const user = await dbWJS('master_user')
-      .select('account_nik', 'account_username', 'emp_id', 'account_bu')
-      .where('account_nik', nik)
+    const user = await dbWJS('mUser')
+      .select('user_nik', 'user_id', 'user_empid', 'user_domain')
+      .where('user_nik', nik)
       .first();
 
     if (!user) {
@@ -36,7 +36,7 @@ export const login = async (req, res) => {
     }
 
     // Lookup in portal using emp_id if exists, otherwise use NIK
-    const lookupValue = user.emp_id || user.account_nik;
+    const lookupValue = user.user_empid || user.user_nik;
     
     const portalUser = await dbHris('ptl_hris as a')
       .select(
@@ -168,9 +168,9 @@ export const logout = async (req, res) => {
     const empid = decoded.user;
 
     // Get user info from master_user
-    const user = await dbWJS('master_user')
-      .select('account_nik', 'account_username', 'emp_id')
-      .where('emp_id', empid)
+    const user = await dbWJS('mUser')
+      .select('user_nik', 'user_id', 'user_empid')
+      .where('user_empid', empid)
       .first();
 
     if (user) {
@@ -253,8 +253,8 @@ export const getCurrentUser = async (req, res) => {
     const decoded = jwt.verify(token, process.env.TOKEN);
     
     // Get user from master_user
-    const user = await dbWJS('master_user')
-      .select('account_nik', 'account_username', 'emp_id', 'account_bu')
+    const user = await dbWJS('mUser')
+      .select('user_nik', 'user_id', 'user_empid', 'user_domain')
       .where('emp_id', decoded.user)
       .first();
 

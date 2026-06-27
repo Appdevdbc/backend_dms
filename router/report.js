@@ -21,6 +21,8 @@ import { getTJKNReport, getTJKNDetail } from "../controllers/Report/tjknReportCo
 import {
   getPerformanceEmployee, savePerformanceEmployee, getEmployeeList,
 } from "../controllers/Report/performanceEmployeeController.js";
+import { getHistoryDocument } from "../controllers/Report/historyDocumentController.js";
+import { getDashboardStats, getChartData } from "../controllers/Report/dashboardController.js";
 
 const router = express.Router();
 
@@ -82,5 +84,12 @@ router.get('/getTJKNDetail', getTJKNDetail);
 router.get('/getPerformanceEmployee', getPerformanceEmployee);
 router.post('/savePerformanceEmployee', savePerformanceEmployee);
 router.get('/getEmployeeListPerf', getEmployeeList);
+
+// History Document routes
+router.get('/getHistoryDocument', getHistoryDocument);
+
+// Dashboard routes
+router.get('/getDashboardStats', getDashboardStats);
+router.get('/getChartData', getChartData);
 
 export default router;
