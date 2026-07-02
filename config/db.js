@@ -230,3 +230,34 @@ export const dbSPK = knex({
     createRetryIntervalMillis: 100,
   },
 });
+
+export const dbHR = knex({
+  client: "mssql",
+  connection: {
+    host: process.env.DB_HR_HOST,
+    port: parseInt(process.env.DB_HR_PORT) || 1433,
+    user: process.env.DB_HR_USERNAME,
+    password: process.env.DB_HR_PASSWORD,
+    timezone: "Asia/Jakarta",
+    options: {
+      instanceName: process.env.DB_HR_INSTANCE || undefined,
+      database: process.env.DB_HR_DATABASE,
+      debug: {
+        packet: false,
+        payload: false,
+        token: false,
+        data: false,
+      },
+    },
+  },
+  pool: {
+    min: 2,
+    max: 10,
+    acquireTimeoutMillis: 30000,
+    createTimeoutMillis: 30000,
+    destroyTimeoutMillis: 5000,
+    idleTimeoutMillis: 30000,
+    reapIntervalMillis: 1000,
+    createRetryIntervalMillis: 100,
+  },
+});

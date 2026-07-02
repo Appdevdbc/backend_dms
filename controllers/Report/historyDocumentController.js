@@ -31,8 +31,9 @@ export const getHistoryDocument = async (req, res) => {
         .leftJoin('mDivisi as div', 'div.divisi_iddiv', 'c.content_iddiv')
         .leftJoin('mDept as dept', 'dept.dept_id', 'c.content_iddept')
         .leftJoin('mFolder as f', 'f.folder_id', 'c.content_idfolder')
-        .where('c.content_domain', process.env.DEFAULT_DOMAIN || 'DMS')
-        .whereNull('c.deleted_at')
+        .where('c.content_domain', req.query.domain || 'DMS')
+        .whereNotNull('c.content_no')
+        // .whereNull('c.deleted_at')
         .orderBy('c.content_no', 'asc');
       
       res.status(200).json(documents);
@@ -59,8 +60,9 @@ export const getHistoryDocument = async (req, res) => {
         .leftJoin('mDivisi as div', 'div.divisi_iddiv', 'c.content_iddiv')
         .leftJoin('mDept as dept', 'dept.dept_id', 'c.content_iddept')
         .leftJoin('mFolder as f', 'f.folder_id', 'c.content_idfolder')
-        .where('c.content_domain', process.env.DEFAULT_DOMAIN || 'DMS')
-        .whereNull('c.deleted_at')
+        .where('c.content_domain', req.query.domain || 'DMS')
+        // .whereNull('c.deleted_at')
+        .whereNotNull('c.content_no')
         .where((query) => {
           if (req.query.filter != null) {
             query.orWhere("c.content_no", "like", `%${req.query.filter}%`);

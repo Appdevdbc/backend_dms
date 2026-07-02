@@ -1,6 +1,6 @@
 import dayjs from "dayjs";
 import { db, dbDMS } from "../../config/db.js";
-import { removeFile, uploadFile } from "../../helpers/ftp.js";
+import { uploadToFTP, deleteFromFTP } from "../../helpers/ftp.js";
 import { decrypt, getErrorResponse, objectToString } from "../../helpers/utils.js";
 import { unlink } from "fs";
 import * as dotenv from "dotenv";

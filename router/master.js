@@ -80,7 +80,7 @@ import { listTJKN, listTJKNEmployee, getMonths, saveTJKN, saveTJKNEmployee, dele
 import { listEmployees, searchEmployeeByNIK, getSections, getPositions, saveEmployee, deleteEmployee, syncEmployeesFromPortal } from "../controllers/master/employeeController.js";
 import { listBreakTimes, updateBreakTime } from "../controllers/master/breakController.js";
 import { listMenu, getMainMenus, saveMenu, deleteMenu, getMenuById } from "../controllers/master/menuController.js";
-import { listPlant, savePlant, deletePlant, getPlantById } from "../controllers/master/plantController.js";
+import { listPlant, savePlant, deletePlant, getPlantById, getBusinessUnits } from "../controllers/master/plantController.js";
 import { listDept, saveDept, deleteDept, getDeptById, getSelectDivisi } from "../controllers/master/deptController.js";
 import { 
   listFolder, saveFolder, deleteFolder, getFolderById,
@@ -91,7 +91,7 @@ import {
 import { 
   listContent, saveContent, deleteContent, getContentById,
   getSelectKlasifikasi, getSelectSubFolder1 as getSelectSubFolder1Content, 
-  getSelectSubFolder2, toggleContentStatus
+  getSelectSubFolder2, toggleContentStatus, upload as contentUpload
 } from "../controllers/master/contentController.js";
 import {
   getUsersAkses, getMainMenusAkses, getSubMenusAkses, getFoldersAkses,
@@ -289,6 +289,7 @@ router.get('/listPlant', listPlant);
 router.post('/savePlant', savePlant);
 router.post('/deletePlant', deletePlant);
 router.get('/getPlantById', getPlantById);
+router.get('/getBusinessUnits', getBusinessUnits);
 
 //DeptController
 router.get('/listDept', listDept);
@@ -314,7 +315,7 @@ router.get('/getSelectSubFolder1', getSelectSubFolder1);
 
 //ContentController
 router.get('/listContent', listContent);
-router.post('/saveContent', saveContent);
+router.post('/saveContent', contentUpload.fields([{ name: 'file', maxCount: 1 }, { name: 'file1', maxCount: 1 }]), saveContent);
 router.post('/deleteContent', deleteContent);
 router.get('/getContentById', getContentById);
 router.get('/getSelectKlasifikasi', getSelectKlasifikasi);

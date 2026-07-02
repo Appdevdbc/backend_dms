@@ -1,7 +1,7 @@
 import { db, dbDMS, dbHris } from "../../config/db.js";
 import dayjs from "dayjs";
 import * as dotenv from 'dotenv';
-import { uploadFile, removeFile } from "../../helpers/ftp.js";
+import { uploadToFTP, deleteFromFTP } from "../../helpers/ftp.js";
 import { unlink } from 'node:fs';
 import { decrypt, encrypt, getErrorResponse, objectToString } from "../../helpers/utils.js";
 import { logger } from "../../helpers/logger.js";
@@ -28,11 +28,11 @@ export const listUser = async (req, res) => {
       }
       if (req.query.needle) {
         responseQuery.where(function () {
-          this.where('u.account_nik', 'like', `%${req.query.needle}%`)
+          this.where('u.user_nik', 'like', `%${req.query.needle}%`)
             .orWhere('v.user_name', 'like', `%${req.query.needle}%`);
         });
       }
-      responseQuery = responseQuery.orderBy("u.account_nik");
+      responseQuery = responseQuery.orderBy("u.user_nik");
 
       // Log SQL query
       // console.log('=== listUser Query (No Pagination) ===');
@@ -62,12 +62,12 @@ export const listUser = async (req, res) => {
       let paginatedQuery = dbDMS('mUser as u')
         .select(
           'u.user_id',
-          'u.user_nik as account_nik',
+          'u.user_nik as user_nik',
           'u.user_empid as emp_id',
-          'u.user_empid as account_username',
+          'u.user_name as user_name',
           'u.user_domain as account_bu',
-          'v.user_email as account_email',
-          'v.user_name as account_name',
+          'u.user_email as account_email',
+          'u.user_name as account_name',
           'v.jabatan as account_jabatan',
           'v.user_active as account_active',
           'div.divisi_name as divisi_name',
@@ -103,10 +103,10 @@ export const listUser = async (req, res) => {
         isLengthAware: true,
       });
 
-      // Encrypt account_username only if it's not null
+      // Encrypt user_name only if it's not null
       for (const data of response.data) {
-        if (data.account_username) {
-          data.account_username = await encrypt(data.account_username);
+        if (data.user_name) {
+          data.user_name = await encrypt(data.user_name);
         }
       }
 
@@ -293,7 +293,7 @@ export const listUserMenuByRole = async (req, res) => {
           .select(
             db.raw("CAST(b.dept_id as varchar) as menu_id"),
             db.raw("b.dept_name as menu_name"),
-            db.raw("'dept/' + CAST(b.dept_id as varchar) as menu_link"),
+            db.raw("'dept/' + CAST(b.dept_seo as varchar) as menu_link"),
             db.raw("'description' as menu_icon"),
             db.raw("0 as menu_order"),
             db.raw("? as menu_parent", [data.menu_id]),
@@ -374,41 +374,33 @@ export const saveUser = async (req, res) => {
           "bearerAuth": []
         }] */
   // #swagger.description = 'Update user pada aplikasi'
+  // console.log(req); return false;
   const trx = await dbDMS.transaction();
   try {
-    const { empid, nik, creator, email, domain, grade, jabatan, nama, dept_id, dept, div_id, div, dir_id, dir } = req.body
+    const { id, empid, nik, creator, email, domain, role, jabatan, nama, dept_id, dept, divisi, dir_id, dir } = req.body
+    
     if (!empid) {
       await trx.rollback();
       return res.status(406).json({ type: 'error', message: `User ${nik} gagal disimpan` });
     }
 
-    const empid_decrypt = decrypt(empid)
-    const creator_decrypt = decrypt(creator)
+    let mDivisi = await dbDMS("mDivisi")
+      .select("divisi_domain")
+      .where('divisi_iddiv', divisi)
+      .first();
+
     const now = dayjs().format("YYYY-MM-DD HH:mm:ss")
     let action = null, dataString = null;
-    if (await trx("master_user").where("account_username", empid_decrypt).first()) {
-      await trx("master_user").where("account_username", empid_decrypt).update({ account_nik: nik, account_email: email, account_bu: domain, account_dept_id: dept_id, account_dept_name: dept, account_div_id: div_id, account_div_name: div, account_dir_id: dir_id, account_dir_name: dir, account_grade: grade, account_active: 'Active', account_jabatan: jabatan, account_name: nama, updated_at: now, deleted_at: null, deleted_by: null });
-      dataString = objectToString({ account_nik: nik, account_email: email, account_bu: domain, account_dept_id: dept_id, account_dept_name: dept, account_div_id: div_id, account_div_name: div, account_dir_id: dir_id, account_dir_name: dir, account_grade: grade, account_active: 'Active', account_jabatan: jabatan, account_name: nama, updated_at: now, deleted_at: null, deleted_by: null });
+    if (await trx("mUser").where("user_id", id).first()) {
+      await trx("mUser").where("user_id", id).update({ user_nik: nik, user_email: email, user_domain: mDivisi.divisi_domain, user_iddept: dept, user_iddiv: divisi, user_role: role, user_name: nama });
+      dataString = objectToString({ user_nik: nik, user_email: email, user_domain: mDivisi.divisi_domain, user_iddept: dept, user_iddiv: divisi, user_role: role, user_name: nama });
       action = 'update';
     } else {
-      await trx("master_user").insert({ account_username: empid_decrypt, account_nik: nik, account_email: email, account_bu: domain, account_dept_id: dept_id, account_dept_name: dept, account_div_id: div_id, account_div_name: div, account_dir_id: dir_id, account_dir_name: dir, account_grade: grade, account_active: 'Active', account_jabatan: jabatan, account_name: nama, created_by: creator_decrypt, created_at: now, updated_by: creator_decrypt, updated_at: now });
-      dataString = objectToString({ account_nik: nik, account_email: email, account_bu: domain, account_dept_id: dept_id, account_dept_name: dept, account_div_id: div_id, account_div_name: div, account_dir_id: dir_id, account_dir_name: dir, account_grade: grade, account_active: 'Active', account_jabatan: jabatan, account_name: nama, created_by: creator_decrypt, created_at: now, updated_by: creator_decrypt, updated_at: now });
+      await trx("mUser").insert({ user_empid: decrypt(empid), user_nik: nik, user_email: email, user_domain: mDivisi.divisi_domain, user_iddept: dept, user_iddiv: divisi, user_role: role, user_name: nama });
+      dataString = objectToString({ user_nik: nik, user_email: email, user_domain: mDivisi.divisi_domain, user_iddept: dept, user_iddiv: divisi, user_role: role, user_name: nama });
       action = 'insert';
     }
 
-    // if (await trx("user_domain").where({usd_empid:empid_decrypt,usd_domain:domain}).first()) {
-    //   await trx('user_domain').where({usd_empid:empid_decrypt,usd_domain:domain}).update({updated_by:creator_decrypt,updated_at:now,deleted_by:null,deleted_at:null});
-    // } else {
-    //   await trx('user_domain').insert({usd_empid:empid_decrypt,usd_domain:domain,created_by:creator_decrypt,created_at:now,updated_by:creator_decrypt,updated_at:now});
-    // }
-
-    // await trx("user_site").where("usite_userid", empid_decrypt).update({usite_default:0,updated_by:creator_decrypt,updated_at:now});
-
-    // if (await trx('user_site').where({usite_userid:empid_decrypt,usite_site:site,usite_domain:domain}).first()) {
-    //   await trx('user_site').where({usite_userid:empid_decrypt,usite_site:site,usite_domain:domain}).update({usite_default:1,updated_by:creator_decrypt,updated_at:now,deleted_at:null,deleted_by:null});
-    // } else {
-    //   await trx('user_site').insert({usite_userid:empid_decrypt,usite_site:site,usite_domain:domain,usite_default:1,created_by:creator_decrypt,created_at:now,updated_by:creator_decrypt,updated_at:now});
-    // }
     await trx.commit();
     return res.json("sukses");
   } catch (error) {
@@ -425,18 +417,15 @@ export const deleteUser = async (req, res) => {
   // #swagger.description = 'Fungsi untuk menghapus user'
   try {
     const now = dayjs().format("YYYY-MM-DD HH:mm:ss")
-    const empid = await decrypt(req.body.empid);
-    const creator = await decrypt(req.body.creator);
 
-    await dbDMS("master_user")
-      .where('emp_id', empid)
-      .update({
-        account_active: 'Inactive',
-        updated_at: now,
-        updated_by: creator,
-        deleted_at: now,
-        deleted_by: creator
-      });
+    await dbDMS('mUser')
+      .where('user_id', req.body.id)
+      .delete();
+
+    await dbDMS('mAkses')
+      .where('akses_user', req.body.id)
+      .delete();
+      
     return res.json("success");
   } catch (error) {
     return res.status(406).json({ type: 'error', message: process.env.DEBUG == 1 ? error.message : `Aplikasi sedang mengalami gangguan, silahkan hubungi tim IT` });
@@ -529,7 +518,7 @@ export const getHrisByNIK = async (req, res) => {
       });
     } else {
 
-      // Check if user already exists in master_user table
+      // Check if user already exists in mUser table
       let users = await dbDMS("mUser")
         .select("user_empid", "user_nik", "user_name")
         .where('user_empid', hris.Emp_Id)
@@ -613,16 +602,16 @@ export const getUserGroup = async (req, res) => {
         'ug.ugrp_user_id',
         'ug.ugrp_group_id',
         'ug.ugrp_bu_id',
-        'u.account_nik as name',
+        'u.user_nik as name',
         'u.account_email as email',
         'g.grp_name',
         'g.grp_code'
       )
-      .innerJoin('master_user as u', 'ug.ugrp_user_id', 'u.emp_id')
+      .innerJoin('mUser as u', 'ug.ugrp_user_id', 'u.emp_id')
       .innerJoin('group_aplikasi as g', 'ug.ugrp_group_id', 'g.grp_id')
       .where('ug.ugrp_bu_id', bu_id)
       .whereNull('ug.deleted_at')
-      .orderBy('u.account_nik', 'asc');
+      .orderBy('u.user_nik', 'asc');
 
     res.status(200).json(data);
   } catch (error) {
@@ -638,10 +627,10 @@ export const getActiveUsers = async (req, res) => {
     }] */
   // #swagger.description = 'Get list of active users'
   try {
-    const users = await dbDMS('master_user as u')
+    const users = await dbDMS('mUser as u')
       .select(
-        'u.account_nik',
-        'u.account_username',
+        'u.user_nik',
+        'u.user_name',
         'u.emp_id',
         'v.user_name as account_name',
         'v.user_email as account_email',
@@ -650,7 +639,7 @@ export const getActiveUsers = async (req, res) => {
       .leftJoin('portal.dbo.ptl_hris as v', 'v.Emp_Id', 'u.emp_id')
       .whereNull('u.deleted_at')
       .where('v.user_active', 'Active')
-      .orderBy('u.account_nik', 'asc');
+      .orderBy('u.user_nik', 'asc');
 
     res.status(200).json(users);
   } catch (error) {
@@ -668,8 +657,8 @@ export const getGroups = async (req, res) => {
   try {
     if (req.query.rowsPerPage == null) {
       // Simple list without pagination
-      const groups = await dbDMS('master_role')
-        .select('role_id', 'role_name')
+      const groups = await dbDMS('mRole')
+        .select('role_idrole as role_id', 'role_name')
         .orderBy('role_name', 'asc');
 
       res.status(200).json(groups);
@@ -679,8 +668,8 @@ export const getGroups = async (req, res) => {
       const columnSort = req.query.sortBy === "desc" ? "grp_name asc" : `${req.query.sortBy} ${sorting}`;
       const page = Math.floor(req.query.page);
 
-      const response = await dbDMS('master_role')
-        .select('role_id', 'role_name')
+      const response = await dbDMS('mRole')
+        .select('role_idrole as role_id', 'role_name')
         .where((query) => {
           if (req.query.filter != null) {
             query.orWhere("role_name", "like", `%${req.query.filter}%`);
@@ -793,7 +782,7 @@ export const getUsers = async (req, res) => {
   /* #swagger.security = [{
           "bearerAuth": []
     }] */
-  // #swagger.description = 'Get all users from master_user table with data from ptl_hris'
+  // #swagger.description = 'Get all users from mUser table with data from ptl_hris'
   try {
     if (req.query.rowsPerPage == null) {
       // Simple list without pagination
@@ -812,7 +801,7 @@ export const getUsers = async (req, res) => {
         .leftJoin('portal.dbo.ptl_hris as v', function () {
           this.on(dbDMS.raw('v.Emp_Id COLLATE SQL_Latin1_General_CP1_CI_AS'), '=', dbDMS.raw('u.emp_id COLLATE SQL_Latin1_General_CP1_CI_AS'));
         })
-        .orderBy('u.account_nik', 'asc');
+        .orderBy('u.user_nik', 'asc');
 
       res.status(200).json(users);
     } else {
@@ -823,8 +812,8 @@ export const getUsers = async (req, res) => {
 
       const response = await dbDMS('mUser as u')
         // .select(
-        //   'u.account_nik',
-        //   'u.account_username',
+        //   'u.user_nik',
+        //   'u.user_name',
         //   'u.emp_id',
         //   'u.account_bu',
         //   'u.account_type',
@@ -874,7 +863,7 @@ export const saveUserData = async (req, res) => {
   /* #swagger.security = [{
           "bearerAuth": []
     }] */
-  // #swagger.description = 'Save or update user in master_user table'
+  // #swagger.description = 'Save or update user in mUser table'
   const trx = await dbDMS.transaction();
   try {
     const { nik, account_name, account_email, emp_id, account_active, creator, role_id } = req.body;
@@ -883,8 +872,8 @@ export const saveUserData = async (req, res) => {
     const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
 
     // Check if user already exists by NIK
-    const existing = await trx('master_user')
-      .where('account_nik', nik)
+    const existing = await trx('mUser')
+      .where('user_nik', nik)
       .first();
 
     const ptl_hris = await trx('portal.dbo.ptl_hris')
@@ -893,8 +882,8 @@ export const saveUserData = async (req, res) => {
 
     if (existing) {
       // Update existing user
-      await trx('master_user')
-        .where('account_nik', nik)
+      await trx('mUser')
+        .where('user_nik', nik)
         .update({
           // account_name: account_name,
           // account_email: account_email,
@@ -907,7 +896,7 @@ export const saveUserData = async (req, res) => {
         });
     } else {
       // Check if emp_id already exists
-      const existingEmpId = await trx('master_user')
+      const existingEmpId = await trx('mUser')
         .where('emp_id', empid_decrypt)
         .first();
 
@@ -920,19 +909,19 @@ export const saveUserData = async (req, res) => {
       }
 
       // Insert new user
-      await trx('master_user').insert({
-        account_nik: nik,
-        account_username: nik, // Duplicate NIK as username
+      await trx('mUser').insert({
+        user_nik: nik,
+        user_name: nik, // Duplicate NIK as username
         // account_name: account_name,
         // account_email: account_email,
         emp_id: empid_decrypt,
         // account_active: account_active || 'Active',
         account_bu: ptl_hris.bu_id,
         account_type: role_id,
-        created_by: creator_decrypt,
-        created_at: now,
-        updated_by: creator_decrypt,
-        updated_at: now,
+        // created_by: creator_decrypt,
+        // created_at: now,
+        // updated_by: creator_decrypt,
+        // updated_at: now,
       });
     }
 
@@ -956,8 +945,8 @@ export const toggleUserActivation = async (req, res) => {
     const creator_decrypt = decrypt(creator);
     const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
 
-    await dbDMS('master_user')
-      .where('account_nik', nik)
+    await dbDMS('mUser')
+      .where('user_nik', nik)
       .update({
         account_active: account_active,
         updated_at: now,
@@ -1009,8 +998,8 @@ export const getRoles = async (req, res) => {
     }] */
   // #swagger.description = 'Get list of roles'
   try {
-    const roles = await dbDMS('master_role')
-      .select('role_id', 'role_name')
+    const roles = await dbDMS('mRole')
+      .select('role_idrole as role_id', 'role_name')
       .orderBy('role_name', 'asc');
 
     res.status(200).json(roles);

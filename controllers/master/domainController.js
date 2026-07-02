@@ -692,9 +692,6 @@ export const getRoleAksesByPage = async (req, res) => {
     const { role: encryptedEmpid, page, domain } = req.query;
     const empid = decrypt(encryptedEmpid);
 
-    console.log('Page : ' + page);
-    console.log('Empid : ' + empid);
-
     const mUser = await dbDMS('mUser')
       .where('user_empid', empid)
       .first();
@@ -710,7 +707,7 @@ export const getRoleAksesByPage = async (req, res) => {
       .where('b.menu_link', cleanPage)
       .first();
 
-    console.log('Access Check Result:', accessCheck);
+    // console.log('Access Check Result:', accessCheck);
 
     if (!accessCheck) {
       return res.status(404).json({

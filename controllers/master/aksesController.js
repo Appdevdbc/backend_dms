@@ -17,13 +17,13 @@ export const getUsersAkses = async (req, res) => {
     const users = await dbDMS('mUser as u')
       .select(
         'u.user_id as value',
-        dbDMS.raw('CONCAT(u.user_name, \' (\', u.user_empid, \')\') as label'),
+        dbDMS.raw('CONCAT(u.user_name, \' (\', u.user_nik, \')\') as label'),
         'u.user_empid',
         'u.user_name'
       )
       .leftJoin('mRole as r', 'r.role_idrole', 'u.user_role')
       .where('u.user_domain', domain)
-      .whereNull('u.deleted_at')
+      // .whereNull('u.deleted_at')
       .orderBy('u.user_name', 'asc');
     
     res.status(200).json(users);
@@ -45,8 +45,8 @@ export const getMainMenusAkses = async (req, res) => {
       .where(function() {
         this.whereNull('menu_parent').orWhere('menu_parent', 0);
       })
-      .whereNull('deleted_at')
-      .orderBy('menu_order', 'asc')
+      // .whereNull('deleted_at')
+      // .orderBy('menu_order', 'asc')
       .orderBy('menu_name', 'asc');
     
     res.status(200).json(menus);
@@ -67,8 +67,8 @@ export const getSubMenusAkses = async (req, res) => {
       .select('menu_id', 'menu_name', 'menu_icon', 'menu_parent')
       .whereNotNull('menu_parent')
       .where('menu_parent', '>', 0)
-      .whereNull('deleted_at')
-      .orderBy('menu_order', 'asc')
+      // .whereNull('deleted_at')
+      // .orderBy('menu_order', 'asc')
       .orderBy('menu_name', 'asc');
     
     res.status(200).json(menus);
@@ -83,26 +83,41 @@ export const getFoldersAkses = async (req, res) => {
   /* #swagger.security = [{
           "bearerAuth": []
     }] */
-  // #swagger.description = 'Get list of folders for akses'
+  // #swagger.description = 'Get list of folders grouped by department for akses'
   try {
     const { domain } = req.query;
     
+    // Get all departments first
+    const departments = await dbDMS('mDept as dept')
+      .select(
+        'dept.dept_id',
+        'dept.dept_name',
+        'div.divisi_name'
+      )
+      .leftJoin('mDivisi as div', 'div.divisi_iddiv', 'dept.dept_divisi')
+      .where('dept.dept_domain', domain)
+      .orderBy('dept.dept_name', 'asc');
+    
+    // Get all folders
     const folders = await dbDMS('mFolder as f')
       .select(
         'f.folder_id',
         'f.folder_name',
         'f.folder_iddiv',
-        'f.folder_iddept',
-        'div.divisi_name',
-        'dept.dept_name'
+        'f.folder_iddept'
       )
-      .leftJoin('mDivisi as div', 'div.divisi_iddiv', 'f.folder_iddiv')
-      .leftJoin('mDept as dept', 'dept.dept_id', 'f.folder_iddept')
       .where('f.folder_domain', domain)
-      .whereNull('f.deleted_at')
       .orderBy('f.folder_name', 'asc');
     
-    res.status(200).json(folders);
+    // Group folders by department
+    const groupedData = departments.map(dept => ({
+      dept_id: dept.dept_id,
+      dept_name: dept.dept_name,
+      divisi_name: dept.divisi_name,
+      folders: folders.filter(f => f.folder_iddept === dept.dept_id)
+    })).filter(dept => dept.folders.length > 0); // Only include departments with folders
+    
+    res.status(200).json(groupedData);
   } catch (error) {
     logger(error, 'GET /getFoldersAkses', req.query);
     return res.status(406).json(getErrorResponse(error));
@@ -123,7 +138,7 @@ export const getUserAksesDetail = async (req, res) => {
       .select('akses_main_menu')
       .where('akses_user', userId)
       .whereNotNull('akses_main_menu')
-      .whereNull('deleted_at')
+      // .whereNull('deleted_at')
       .then(rows => rows.map(r => r.akses_main_menu));
     
     // Get sub menus access
@@ -131,7 +146,7 @@ export const getUserAksesDetail = async (req, res) => {
       .select('akses_sub_menu')
       .where('akses_user', userId)
       .whereNotNull('akses_sub_menu')
-      .whereNull('deleted_at')
+      // .whereNull('deleted_at')
       .then(rows => rows.map(r => r.akses_sub_menu));
     
     // Get folders access
@@ -139,7 +154,7 @@ export const getUserAksesDetail = async (req, res) => {
       .select('akses_folder')
       .where('akses_user', userId)
       .whereNotNull('akses_folder')
-      .whereNull('deleted_at')
+      // .whereNull('deleted_at')
       .then(rows => rows.map(r => r.akses_folder));
     
     res.status(200).json({
@@ -175,8 +190,8 @@ export const saveUserAkses = async (req, res) => {
       const mainMenuInserts = mainMenus.map(menuId => ({
         akses_user: userId,
         akses_main_menu: menuId,
-        created_by: creator_decrypt,
-        created_at: now,
+        // created_by: creator_decrypt,
+        // created_at: now,
       }));
       await trx('mAkses').insert(mainMenuInserts);
     }
@@ -186,8 +201,8 @@ export const saveUserAkses = async (req, res) => {
       const subMenuInserts = subMenus.map(menuId => ({
         akses_user: userId,
         akses_sub_menu: menuId,
-        created_by: creator_decrypt,
-        created_at: now,
+        // created_by: creator_decrypt,
+        // created_at: now,
       }));
       await trx('mAkses').insert(subMenuInserts);
     }
@@ -203,8 +218,8 @@ export const saveUserAkses = async (req, res) => {
         folderInserts.push({
           akses_user: userId,
           akses_folder: folderId,
-          created_by: creator_decrypt,
-          created_at: now,
+          // created_by: creator_decrypt,
+          // created_at: now,
         });
         
         // Get department for this folder
@@ -217,8 +232,8 @@ export const saveUserAkses = async (req, res) => {
           deptInserts.push({
             akses_user: userId,
             akses_dept: folder.folder_iddept,
-            created_by: creator_decrypt,
-            created_at: now,
+            // created_by: creator_decrypt,
+            // created_at: now,
           });
           processedDepts.add(folder.folder_iddept);
         }

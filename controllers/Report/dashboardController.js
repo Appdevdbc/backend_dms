@@ -15,7 +15,7 @@ export const getDashboardStats = async (req, res) => {
     }] */
   // #swagger.description = 'Get dashboard statistics (Prosedur, IK, Form totals)'
   try {
-    const userDomain = process.env.DEFAULT_DOMAIN || 'DMS';
+    const userDomain = req.query.domain || 'DMS';
 
     // Get total PROSEDUR documents
     const prosedurResult = await dbDMS("mContent")
@@ -23,7 +23,7 @@ export const getDashboardStats = async (req, res) => {
       .where("mFolder.folder_name", "PROSEDUR")
       .where("mContent.content_active", 1)
       .where("mContent.content_domain", userDomain)
-      .whereNull("mContent.deleted_at")
+      // .whereNull("mContent.deleted_at")
       .count("mContent.content_id as total")
       .first();
 
@@ -33,7 +33,7 @@ export const getDashboardStats = async (req, res) => {
       .where("mFolder.folder_name", "INSTRUKSI KERJA")
       .where("mContent.content_active", 1)
       .where("mContent.content_domain", userDomain)
-      .whereNull("mContent.deleted_at")
+      // .whereNull("mContent.deleted_at")
       .count("mContent.content_id as total")
       .first();
 
@@ -43,7 +43,7 @@ export const getDashboardStats = async (req, res) => {
       .where("mFolder.folder_name", "FORMULIR")
       .where("mContent.content_active", 1)
       .where("mContent.content_domain", userDomain)
-      .whereNull("mContent.deleted_at")
+      // .whereNull("mContent.deleted_at")
       .count("mContent.content_id as total")
       .first();
 
@@ -72,20 +72,20 @@ export const getChartData = async (req, res) => {
     }] */
   // #swagger.description = 'Get chart data for documents per department by folder type'
   try {
-    const userDomain = process.env.DEFAULT_DOMAIN || 'DMS';
+    const userDomain = req.query.domain || 'DMS';
 
     // Get all unique folder names for this domain
     const folders = await dbDMS("mFolder")
       .select("folder_name")
       .where("folder_domain", userDomain)
-      .whereNull("deleted_at")
+      // .whereNull("deleted_at")
       .groupBy("folder_name")
       .orderBy("folder_name");
 
     // Get all departments
     const departments = await dbDMS("mDept")
       .select("dept_id", "dept_name")
-      .whereNull("deleted_at")
+      // .whereNull("deleted_at")
       .orderBy("dept_name");
 
     // Build series data
@@ -100,7 +100,7 @@ export const getChartData = async (req, res) => {
           .select("folder_id")
           .where("folder_iddept", dept.dept_id)
           .where("folder_name", folder.folder_name)
-          .whereNull("deleted_at")
+          // .whereNull("deleted_at")
           .first();
 
         let count = 0;
@@ -111,7 +111,7 @@ export const getChartData = async (req, res) => {
             .where("content_iddept", dept.dept_id)
             .where("content_idfolder", folderExists.folder_id)
             .where("content_active", 1)
-            .whereNull("deleted_at")
+            // .whereNull("deleted_at")
             .first();
 
           count = parseInt(countResult?.jumlah) || 0;

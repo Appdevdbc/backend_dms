@@ -70,10 +70,10 @@ export const getMainMenus = async (req, res) => {
     }] */
   // #swagger.description = 'Get list of main menus (parent = 0)'
   try {
-    const mainMenus = await dbDMS('mst_menu')
+    const mainMenus = await dbDMS('mMenu')
       .select('menu_id as value', 'menu_name as label')
       .where('menu_parent', 0)
-      .whereNull('deleted_at')
+      // .whereNull('deleted_at')
       .orderBy('menu_name', 'asc');
     
     res.status(200).json(mainMenus);
@@ -100,22 +100,22 @@ export const saveMenu = async (req, res) => {
       menu_parent: menu_type === 'main' ? 0 : menu_parent,
       menu_link: menu_link || '',
       menu_icon: menu_icon || '',
-      menu_order: menu_order || 0,
-      updated_by: creator_decrypt,
-      updated_at: now,
+      // menu_order: menu_order || 0,
+      // updated_by: creator_decrypt,
+      // updated_at: now,
     };
     
     if (id && id > 0) {
       // Update existing menu
-      await trx('mst_menu')
+      await trx('mMenu')
         .where('menu_id', id)
         .update(menuData);
     } else {
       // Check if menu already exists
-      const existing = await trx('mst_menu')
+      const existing = await trx('mMenu')
         .where('menu_name', menu_name)
         .where('menu_parent', menuData.menu_parent)
-        .whereNull('deleted_at')
+        // .whereNull('deleted_at')
         .first();
       
       if (existing) {
@@ -127,10 +127,10 @@ export const saveMenu = async (req, res) => {
       }
       
       // Insert new menu
-      await trx('mst_menu').insert({
+      await trx('mMenu').insert({
         ...menuData,
-        created_by: creator_decrypt,
-        created_at: now,
+        // created_by: creator_decrypt,
+        // created_at: now,
       });
     }
     
@@ -155,9 +155,9 @@ export const deleteMenu = async (req, res) => {
     const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
     
     // Check if menu has children
-    const hasChildren = await dbDMS('mst_menu')
+    const hasChildren = await dbDMS('mMenu')
       .where('menu_parent', id)
-      .whereNull('deleted_at')
+      // .whereNull('deleted_at')
       .count('* as count')
       .first();
     
@@ -169,12 +169,16 @@ export const deleteMenu = async (req, res) => {
     }
     
     // Soft delete
-    await dbDMS('mst_menu')
+    // await dbDMS('mMenu')
+    //   .where('menu_id', id)
+    //   .update({
+    //     deleted_by: creator_decrypt,
+    //     deleted_at: now,
+    //   });
+
+    await dbDMS('mMenu')
       .where('menu_id', id)
-      .update({
-        deleted_by: creator_decrypt,
-        deleted_at: now,
-      });
+      .delete();
     
     return res.json("success");
   } catch (error) {
@@ -192,7 +196,7 @@ export const getMenuById = async (req, res) => {
   try {
     const { id } = req.query;
     
-    const menu = await dbDMS('mst_menu')
+    const menu = await dbDMS('mMenu')
       .select(
         'menu_id',
         'menu_name',
@@ -202,7 +206,7 @@ export const getMenuById = async (req, res) => {
         'menu_order'
       )
       .where('menu_id', id)
-      .whereNull('deleted_at')
+      // .whereNull('deleted_at')
       .first();
     
     if (!menu) {

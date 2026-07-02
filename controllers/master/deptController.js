@@ -24,7 +24,8 @@ export const listDept = async (req, res) => {
           'div.divisi_name'
         )
         .leftJoin('mDivisi as div', 'div.divisi_iddiv', 'd.dept_divisi')
-        .whereNull('d.deleted_at')
+        // .whereNull('d.deleted_at')
+        .where('dept_domain', req.query.domain)
         .orderBy('d.dept_id', 'desc');
       
       res.status(200).json(depts);
@@ -44,7 +45,8 @@ export const listDept = async (req, res) => {
           'div.divisi_name'
         )
         .leftJoin('mDivisi as div', 'div.divisi_iddiv', 'd.dept_divisi')
-        .whereNull('d.deleted_at')
+        // .whereNull('d.deleted_at')
+        .where('dept_domain', req.query.domain)
         .where((query) => {
           if (req.query.filter != null) {
             query.orWhere("d.dept_name", "like", `%${req.query.filter}%`);
@@ -90,8 +92,8 @@ export const saveDept = async (req, res) => {
       dept_path1: '',
       dept_seo: dept_name.toLowerCase().replace(/\s+/g, '-'),
       dept_domain: domain,
-      updated_by: creator_decrypt,
-      updated_at: now,
+      // updated_by: creator_decrypt,
+      // updated_at: now,
     };
     
     if (id && id > 0) {
@@ -105,7 +107,7 @@ export const saveDept = async (req, res) => {
         .where('dept_name', dept_name)
         .where('dept_divisi', dept_divisi)
         .where('dept_domain', domain)
-        .whereNull('deleted_at')
+        // .whereNull('deleted_at')
         .first();
       
       if (existing) {
@@ -119,8 +121,8 @@ export const saveDept = async (req, res) => {
       // Insert new department
       await trx('mDept').insert({
         ...deptData,
-        created_by: creator_decrypt,
-        created_at: now,
+        // created_by: creator_decrypt,
+        // created_at: now,
       });
     }
     
@@ -147,7 +149,7 @@ export const deleteDept = async (req, res) => {
     // Check if department has users
     const hasUsers = await dbDMS('mUser')
       .where('user_iddept', id)
-      .whereNull('deleted_at')
+      // .whereNull('deleted_at')
       .count('* as count')
       .first();
     
@@ -159,12 +161,16 @@ export const deleteDept = async (req, res) => {
     }
     
     // Soft delete
+    // await dbDMS('mDept')
+    //   .where('dept_id', id)
+    //   .update({
+    //     deleted_by: creator_decrypt,
+    //     deleted_at: now,
+    //   });
+
     await dbDMS('mDept')
       .where('dept_id', id)
-      .update({
-        deleted_by: creator_decrypt,
-        deleted_at: now,
-      });
+      .delete();
     
     return res.json("success");
   } catch (error) {
@@ -222,7 +228,8 @@ export const getSelectDivisi = async (req, res) => {
         'divisi_iddiv as value',
         'divisi_name as label'
       )
-      .whereNull('deleted_at')
+      // .whereNull('deleted_at')
+      .whereNotNull('divisi_domain')
       .orderBy('divisi_name', 'asc');
     
     res.status(200).json(divisi);

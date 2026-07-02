@@ -1,4 +1,4 @@
-import { dbDMS } from "../../config/db.js";
+import { dbDMS, dbHR } from "../../config/db.js";
 import dayjs from "dayjs";
 import * as dotenv from 'dotenv';
 import { decrypt, getErrorResponse } from "../../helpers/utils.js";
@@ -23,7 +23,7 @@ export const listPlant = async (req, res) => {
           'divisi_path1',
           'divisi_domain'
         )
-        .whereNull('deleted_at')
+        // .where('divisi_domain', req.query.domain)
         .orderBy('divisi_iddiv', 'desc');
       
       res.status(200).json(plants);
@@ -48,7 +48,8 @@ export const listPlant = async (req, res) => {
             query.orWhere("divisi_note", "like", `%${req.query.filter}%`);
           }
         })
-        .whereNull('deleted_at')
+        // .whereNull('deleted_at')
+        // .where('divisi_domain', req.query.domain)
         .orderByRaw(columnSort)
         .paginate({
           perPage: Math.floor(req.query.rowsPerPage),
@@ -72,12 +73,12 @@ export const savePlant = async (req, res) => {
   // #swagger.description = 'Save or update plant/division'
   const trx = await dbDMS.transaction();
   try {
-    const { id, divisi_name, divisi_note, creator } = req.body;
+    const { id, divisi_name, divisi_note, divisi_domain, creator } = req.body;
     const creator_decrypt = decrypt(creator);
     const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
     
-    // Get domain from request or use default
-    const domain = req.body.domain || process.env.DEFAULT_DOMAIN || 'DMS';
+    // Get domain from request body (business unit id)
+    const domain = divisi_domain || process.env.DEFAULT_DOMAIN || 'DMS';
     
     const plantData = {
       divisi_name,
@@ -85,8 +86,8 @@ export const savePlant = async (req, res) => {
       divisi_path: '', // Path will be managed later if needed
       divisi_path1: '',
       divisi_domain: domain,
-      updated_by: creator_decrypt,
-      updated_at: now,
+      // updated_by: creator_decrypt,
+      // updated_at: now,
     };
     
     if (id && id > 0) {
@@ -99,7 +100,7 @@ export const savePlant = async (req, res) => {
       const existing = await trx('mDivisi')
         .where('divisi_name', divisi_name)
         .where('divisi_domain', domain)
-        .whereNull('deleted_at')
+        // .whereNull('deleted_at')
         .first();
       
       if (existing) {
@@ -113,8 +114,8 @@ export const savePlant = async (req, res) => {
       // Insert new plant
       await trx('mDivisi').insert({
         ...plantData,
-        created_by: creator_decrypt,
-        created_at: now,
+        // created_by: creator_decrypt,
+        // created_at: now,
       });
     }
     
@@ -141,7 +142,7 @@ export const deletePlant = async (req, res) => {
     // Check if plant has departments
     const hasDepartments = await dbDMS('mDept')
       .where('dept_divisi', id)
-      .whereNull('deleted_at')
+      // .whereNull('deleted_at')
       .count('* as count')
       .first();
     
@@ -153,12 +154,16 @@ export const deletePlant = async (req, res) => {
     }
     
     // Soft delete
+    // await dbDMS('mDivisi')
+    //   .where('divisi_iddiv', id)
+    //   .update({
+    //     deleted_by: creator_decrypt,
+    //     deleted_at: now,
+    //   });
+
     await dbDMS('mDivisi')
       .where('divisi_iddiv', id)
-      .update({
-        deleted_by: creator_decrypt,
-        deleted_at: now,
-      });
+      .delete();
     
     return res.json("success");
   } catch (error) {
@@ -199,6 +204,25 @@ export const getPlantById = async (req, res) => {
     res.status(200).json(plant);
   } catch (error) {
     logger(error, 'GET /getPlantById', req.query);
+    return res.status(406).json(getErrorResponse(error));
+  }
+};
+
+export const getBusinessUnits = async (req, res) => {
+  // #swagger.tags = ['Plant']
+  /* #swagger.security = [{
+          "bearerAuth": []
+    }] */
+  // #swagger.description = 'Get list of active business units'
+  try {
+    const businessUnits = await dbHR('master_business_unit')
+      .select('bu_id as value', 'bu_name as label')
+      .where('bu_status', 'Active')
+      .orderBy('bu_name', 'asc');
+    
+    res.status(200).json(businessUnits);
+  } catch (error) {
+    logger(error, 'GET /getBusinessUnits', req.query);
     return res.status(406).json(getErrorResponse(error));
   }
 };
