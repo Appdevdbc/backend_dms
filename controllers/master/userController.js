@@ -147,7 +147,7 @@ export const listAksesDomain = async (req, res) => {
 
 }
 
-export const listUserMenuByRole = async (req, res) => {
+export const listUserMenuByRoleOld = async (req, res) => {
   // #swagger.tags = ['User']
   /* #swagger.security = [{
           "bearerAuth": []
@@ -157,94 +157,10 @@ export const listUserMenuByRole = async (req, res) => {
     const { empid: encryptedEmpid, domain } = req.query;
     const empid = decrypt(encryptedEmpid);
 
-    // Get user's groups using new user_group table
-    // const userGroups = await dbDMS('user_group')
-    //   .select('ugrp_group_id')
-    //   .where({'ugrp_user_id':empid, 'ugrp_bu_id':domain})
-    //   .whereNull('deleted_at');
-
     const mUser = await dbDMS('mUser')
       .select('user_role', 'user_id')
       .where({ 'user_empid': empid })
       .first();
-
-    // if(userGroups.length === 0) return res.status(200).json({data: []});
-
-    // const groupIds = userGroups.map(g => g.account_type);
-
-    // // Get parent menus
-    // const parentQuery = dbDMS("mst_menu as a")
-    //   .distinct("a.menu_parent", "menu_icon", "menu_id", "menu_link", "menu_name", "menu_order")
-    //   .join(
-    //     dbDMS("vw_menu_access")
-    //       .distinct("parent")
-    //       .whereIn("maccess_group_id", groupIds)
-    //       .whereNull('deleted_at')
-    //       .as("b"),
-    //     function () {
-    //       this.on("a.menu_id", "=", "b.parent");
-    //     }
-    //   )
-    //   .whereNull('a.deleted_at')
-    //   .orderBy("menu_order", "asc");
-
-    // // Log SQL query at line 151
-    // console.log('=== listUserMenuByRole - Parent Menu Query (Line 151) ===');
-    // console.log(parentQuery.toSQL().toNative());
-    // console.log('Group IDs:', groupIds);
-    // console.log('========================================================');
-
-    // const parent = await parentQuery;
-
-    // // Get children for each parent
-    // for (const data of parent) {
-    //   data.children = await dbDMS("vw_menu_access")
-    //     .distinct(
-    //       "mst_menu.menu_parent",
-    //       "mst_menu.menu_icon",
-    //       "mst_menu.menu_id",
-    //       "mst_menu.menu_link",
-    //       "mst_menu.menu_name",
-    //       "mst_menu.menu_order",
-    //       dbDMS.raw("0 as prior")
-    //     )
-    //     .innerJoin("mst_menu", "maccess_menuid", "menu_id")
-    //     .leftJoin("collection_det", "coldet_menu", "mst_menu.menu_id")
-    //     .whereNull("coldet_menu")
-    //     .whereNull("collection_det.deleted_at")
-    //     .whereNull("mst_menu.deleted_at")
-    //     .where("mst_menu.menu_parent", data.menu_id)
-    //     .whereIn("maccess_group_id", groupIds)
-    //     .whereNull('vw_menu_access.deleted_at')
-    //     .unionAll(function () {
-    //       this.distinct(
-    //         dbDMS.raw(`a.col_parent as menu_parent,a.col_icon as menu_icon,
-    //   a.colid as menu_id,a.col_link as menu_link,
-    //   a.col_name as menu_name, a.col_order as menu_order,1 as prior`)
-    //       )
-    //         .from("collection_menu as a")
-    //         .innerJoin("collection_det as b", "b.coldet_colid", "a.colid")
-    //         .innerJoin("menu_access as c", "c.maccess_menuid", "b.coldet_menu")
-    //         .where("col_parent", data.menu_id)
-    //         .whereNull("a.deleted_at")
-    //         .whereNull("c.deleted_at")
-    //         .whereIn("c.maccess_group_id", groupIds);
-    //     })
-    //     .as("a")
-    //     .orderBy("prior", "asc")
-    //     .orderBy("menu_order", "asc");
-    // }
-
-    // const parentQuery = await dbDMS("mMenu")
-    //   .select(
-    //     "menu_id",
-    //     "menu_name",
-    //     "menu_link",
-    //     "menu_icon",
-    //     db.raw("0 as menu_order"),
-    //     db.raw("case when menu_parent = 0 then null else menu_parent end menu_parent")
-    //   )
-    //   .where("menu_parent", 0);
 
     const parentQuery = dbDMS('mAkses as a')
       .select(
@@ -321,6 +237,156 @@ export const listUserMenuByRole = async (req, res) => {
   }
 };
 
+export const listUserMenuByRole = async (req, res) => {
+  // #swagger.tags = ['User']
+  /* #swagger.security = [{
+          "bearerAuth": []
+        }] */
+  // #swagger.description = 'Fungsi menampilkan list akses menu user saat ini'
+  try {
+    const { empid: encryptedEmpid, domain } = req.query;
+    const empid = decrypt(encryptedEmpid);
+
+    // Get user's groups using new user_group table
+    const userGroupsQuery = dbDMS('mUser')
+      .select('user_role')
+      .where({ 'user_empid': empid });
+
+    // Show raw SQL query for userGroups
+    // console.log('=== listUserMenuByRole - Get User Groups Query ===');
+    // console.log('Raw SQL Query:', userGroupsQuery.toSQL().sql);
+    // console.log('Query Bindings:', userGroupsQuery.toSQL().bindings);
+    // console.log('====================================================');
+
+    const userGroups = await userGroupsQuery;
+    // .whereNull('deleted_at');
+
+    if (userGroups.length === 0) return res.status(200).json({ data: [] });
+
+    const groupIds = userGroups.map(g => g.user_role);
+
+    // Get mUser data for the user
+    const mUser = await dbDMS('mUser')
+      .select('user_id')
+      .where({ 'user_empid': empid })
+      .first();
+
+    if (!mUser) return res.status(404).json({ message: 'User tidak ditemukan' });
+
+    // Get parent menus with UNION for Departement menu
+    const parentQuery = dbDMS.raw(`
+      select distinct [a].[menu_parent], [menu_icon], [menu_id], [menu_link], [menu_name] 
+      from [mMenu] as [a] 
+      inner join (
+        select distinct [parent] 
+        from [vw_menu_access] 
+        where [maccess_group_id] in (${groupIds.join(',')}) 
+        and [deleted_at] is null
+      ) as [b] 
+      on [a].[menu_id] = [b].[parent]
+      union
+      select distinct [menu_parent], [menu_icon], [menu_id], [menu_link], [menu_name] 
+      from [mMenu]
+      where menu_name = 'Departement'
+      and (select count(akses_id) from mAkses where akses_user = ?) > 0
+    `, [mUser.user_id]);
+
+    // Show raw SQL query for parent menus
+    // console.log('=== listUserMenuByRole - Get Parent Menus Query (UNION) ===');
+    // console.log('Raw SQL Query:', parentQuery.sql);
+    // console.log('Query Bindings:', parentQuery.bindings);
+    // console.log('Group IDs:', groupIds);
+    // console.log('User ID:', mUser.user_id);
+    // console.log('=============================================================');
+
+    const parent = await parentQuery;
+    // .whereNull('a.deleted_at')
+    // .orderBy("menu_order", "asc");
+
+    // Get children for each parent
+    for (const data of parent) {
+      // Build query for sub-menus (from vw_menu_access)
+      const subMenusQuery = dbDMS("vw_menu_access")
+        .distinct(
+          "mMenu.menu_parent",
+          "mMenu.menu_icon",
+          "mMenu.menu_id",
+          "mMenu.menu_link",
+          "mMenu.menu_name",
+          dbDMS.raw("0 as menu_order"),
+          dbDMS.raw("0 as prior")
+        )
+        .innerJoin("mMenu", "maccess_menuid", "menu_id")
+        .leftJoin("collection_det", "coldet_menu", "mMenu.menu_id")
+        .whereNull("coldet_menu")
+        .whereNull("collection_det.deleted_at")
+        .where("mMenu.menu_parent", data.menu_id)
+        .whereIn("maccess_group_id", groupIds)
+        .whereNull('vw_menu_access.deleted_at')
+        .unionAll(function () {
+          this.distinct(
+            dbDMS.raw(`a.col_parent as menu_parent,a.col_icon as menu_icon,
+        a.colid as menu_id,a.col_link as menu_link,
+        a.col_name as menu_name, a.col_order as menu_order,1 as prior`)
+          )
+            .from("collection_menu as a")
+            .innerJoin("collection_det as b", "b.coldet_colid", "a.colid")
+            .innerJoin("menu_access as c", "c.maccess_menuid", "b.coldet_menu")
+            .where("col_parent", data.menu_id)
+            .whereNull("a.deleted_at")
+            .whereNull("c.deleted_at")
+            .whereIn("c.maccess_group_id", groupIds);
+        })
+        .as("a")
+        .orderBy("prior", "asc");
+
+      // Execute query to get sub-menus
+      const subMenus = await subMenusQuery;
+
+      // Get department children (if parent menu is "Departement")
+      let deptMenus = [];
+      if (data.menu_name === 'Departement' || data.menu_link === 'departement') {
+        deptMenus = await dbDMS('mAkses as a')
+          .select(
+            dbDMS.raw("CAST(b.dept_id as varchar) as menu_id"),
+            dbDMS.raw("b.dept_name as menu_name"),
+            dbDMS.raw("'dept/' + CAST(b.dept_seo as varchar) as menu_link"),
+            dbDMS.raw("'description' as menu_icon"),
+            dbDMS.raw("0 as menu_order"),
+            dbDMS.raw("? as menu_parent", [data.menu_id]),
+            dbDMS.raw("1 as prior")
+          )
+          .innerJoin('mDept as b', function () {
+            this.on(dbDMS.raw(`b.dept_id = a.akses_dept`));
+          })
+          .where('a.akses_user', mUser.user_id)
+          .whereNotNull('a.akses_dept');
+      }
+
+      // Combine sub-menus and departments, sort by prior then menu_order
+      data.children = [...subMenus, ...deptMenus].sort((a, b) => {
+        if (a.prior !== b.prior) return a.prior - b.prior;
+        return a.menu_order - b.menu_order;
+      });
+
+      // Show raw SQL query for children (only for first parent to avoid too much logging)
+      // if (parent.indexOf(data) === 0) {
+      //   console.log('=== listUserMenuByRole - Get Children Query (First Parent) ===');
+      //   console.log('Parent Menu ID:', data.menu_id);
+      //   console.log('Sub-menus count:', subMenus.length);
+      //   console.log('Dept menus count:', deptMenus.length);
+      //   console.log('===============================================================');
+      // }
+    }
+
+    res.status(200).json({ data: parent });
+  } catch (error) {
+    console.log(error);
+    logger(error, 'GET /listUserMenuByRole', req.query);
+    return res.status(406).json({ type: 'error', message: process.env.DEBUG == 1 ? error.message : `Aplikasi sedang mengalami gangguan, silahkan hubungi tim IT` });
+  }
+};
+
 export const listUserSite = async (req, res) => {
   // #swagger.tags = ['PSAK General']
   /* #swagger.security = [{
@@ -378,7 +444,7 @@ export const saveUser = async (req, res) => {
   const trx = await dbDMS.transaction();
   try {
     const { id, empid, nik, creator, email, domain, role, jabatan, nama, dept_id, dept, divisi, dir_id, dir } = req.body
-    
+
     if (!empid) {
       await trx.rollback();
       return res.status(406).json({ type: 'error', message: `User ${nik} gagal disimpan` });
@@ -425,7 +491,7 @@ export const deleteUser = async (req, res) => {
     await dbDMS('mAkses')
       .where('akses_user', req.body.id)
       .delete();
-      
+
     return res.json("success");
   } catch (error) {
     return res.status(406).json({ type: 'error', message: process.env.DEBUG == 1 ? error.message : `Aplikasi sedang mengalami gangguan, silahkan hubungi tim IT` });
@@ -657,9 +723,9 @@ export const getGroups = async (req, res) => {
   try {
     if (req.query.rowsPerPage == null) {
       // Simple list without pagination
-      const groups = await dbDMS('mRole')
-        .select('role_idrole as role_id', 'role_name')
-        .orderBy('role_name', 'asc');
+      const groups = await dbDMS('group_aplikasi')
+        .select('grp_id', 'grp_name', 'grp_code')
+        .orderBy('grp_name', 'asc');
 
       res.status(200).json(groups);
     } else {
@@ -668,11 +734,11 @@ export const getGroups = async (req, res) => {
       const columnSort = req.query.sortBy === "desc" ? "grp_name asc" : `${req.query.sortBy} ${sorting}`;
       const page = Math.floor(req.query.page);
 
-      const response = await dbDMS('mRole')
-        .select('role_idrole as role_id', 'role_name')
+      const response = await dbDMS('group_aplikasi')
+        .select('grp_id', 'grp_name', 'grp_code')
         .where((query) => {
           if (req.query.filter != null) {
-            query.orWhere("role_name", "like", `%${req.query.filter}%`);
+            query.orWhere("grp_name", "like", `%${req.query.filter}%`);
           }
         })
         .orderByRaw(columnSort)
@@ -998,9 +1064,9 @@ export const getRoles = async (req, res) => {
     }] */
   // #swagger.description = 'Get list of roles'
   try {
-    const roles = await dbDMS('mRole')
-      .select('role_idrole as role_id', 'role_name')
-      .orderBy('role_name', 'asc');
+    const roles = await dbDMS('group_aplikasi')
+      .select('grp_id as role_id', 'grp_name as role_name')
+      .orderBy('grp_name', 'asc');
 
     res.status(200).json(roles);
   } catch (error) {
@@ -1022,9 +1088,9 @@ export const saveGroup = async (req, res) => {
     const creatorEmpId = decrypt(encryptedCreator);
 
     // Lookup user ID from users table
-    const user = await trx('users')
-      .select('id')
-      .where('emp_id', creatorEmpId)
+    const user = await trx('mUser')
+      .select('user_id')
+      .where('user_empid', creatorEmpId)
       .first();
 
     if (!user) {
