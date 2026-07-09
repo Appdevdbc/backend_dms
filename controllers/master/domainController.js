@@ -521,6 +521,8 @@ export const listRoleAkses = async (req, res) => {
     const perPage = Math.floor(rowsPerPage);
     const groupId = parent; // Use plain group ID (no decryption needed)
 
+    console.log([groupId, (currentPage - 1) * perPage, perPage]);
+
     // Get all menus with their access status for this group
     const query = await dbDMS.raw(`
       SELECT 
@@ -537,27 +539,30 @@ export const listRoleAkses = async (req, res) => {
         CAST(ISNULL(ma.maccess_add, 0) AS INT) as access_add,
         CAST(ISNULL(ma.maccess_edit, 0) AS INT) as access_edit,
         CAST(ISNULL(ma.maccess_delete, 0) AS INT) as access_delete
-      FROM mst_menu m
-      LEFT JOIN mst_menu parent ON m.menu_parent = parent.menu_id
+      FROM mMenu m
+      LEFT JOIN mMenu parent ON m.menu_parent = parent.menu_id
       LEFT JOIN collection_det cd ON m.menu_id = cd.coldet_menu AND cd.deleted_at IS NULL
       LEFT JOIN collection_menu col ON cd.coldet_colid = col.colid AND col.deleted_at IS NULL
       LEFT JOIN menu_access ma ON m.menu_id = ma.maccess_menuid 
         AND ma.maccess_group_id = ? 
-        AND ma.deleted_at IS NULL
-      WHERE m.menu_parent IS NOT NULL 
-        AND m.deleted_at IS NULL
+        -- AND ma.deleted_at IS NULL
+      WHERE m.menu_parent <> 0 
+        -- AND m.deleted_at IS NULL
         ${filter ? `AND (m.menu_name LIKE '%${filter}%' OR parent.menu_name LIKE '%${filter}%' OR col.col_name LIKE '%${filter}%' OR m.menu_link LIKE '%${filter}%')` : ''}
       ORDER BY ${columnSort}
       OFFSET ? ROWS
       FETCH NEXT ? ROWS ONLY
     `, [groupId, (currentPage - 1) * perPage, perPage]);
 
+    // console.log('Raw SQL Query:', query.toSQL().sql);
+    // console.log('Query Bindings:', query.toSQL().bindings);
+
     // Get total count
     const countQuery = await dbDMS.raw(`
       SELECT COUNT(*) as total
-      FROM mst_menu m
-      WHERE m.menu_parent IS NOT NULL 
-        AND m.deleted_at IS NULL
+      FROM mMenu m
+      WHERE m.menu_parent <> 0 
+        -- AND m.deleted_at IS NULL
         ${filter ? `AND (m.menu_name LIKE '%${filter}%')` : ''}
     `);
 
@@ -698,14 +703,21 @@ export const getRoleAksesByPage = async (req, res) => {
 
     // Check access using mAkses and mMenu tables
     const cleanPage = page.replace('/', '');
-    const accessCheck = await dbDMS('mAkses as a')
+    
+    // Build query for debugging
+    const accessQuery = dbDMS('mAkses as a')
       .select('a.*', 'b.menu_name', 'b.menu_link', 'b.menu_parent', 'b.menu_tipe')
       .innerJoin('mMenu as b', function () {
         this.on(dbDMS.raw(`b.menu_id = case when b.menu_tipe = 'main' then a.akses_main_menu else a.akses_sub_menu end`));
       })
       .where('a.akses_user', mUser.user_id)
-      .where('b.menu_link', cleanPage)
-      .first();
+      .where('b.menu_link', cleanPage);
+    
+    // Show raw SQL query
+    // console.log('Raw SQL Query:', accessQuery.toSQL().sql);
+    // console.log('Query Bindings:', accessQuery.toSQL().bindings);
+    
+    const accessCheck = await accessQuery.first();
 
     // console.log('Access Check Result:', accessCheck);
 
