@@ -72,7 +72,7 @@ export const listUser = async (req, res) => {
           'v.user_active as account_active',
           'div.divisi_name as divisi_name',
           'dept.dept_name as dept_name',
-          'role.role_name as role_name',
+          'role.grp_name as role_name',
           'u.user_iddiv',
           'u.user_iddept',
           'u.user_role'
@@ -80,7 +80,7 @@ export const listUser = async (req, res) => {
         .leftJoin('portal.dbo.ptl_hris as v', 'v.Emp_Id', 'u.user_empid')
         .leftJoin('mDivisi as div', 'div.divisi_iddiv', 'u.user_iddiv')
         .leftJoin('mDept as dept', 'dept.dept_id', 'u.user_iddept')
-        .leftJoin('mRole as role', 'role.role_idrole', 'u.user_role')
+        .leftJoin('group_aplikasi as role', 'role.grp_id', 'u.user_role')
         .where((query) => {
           if (req.query.filter != null) {
             query.orWhere("u.user_nik", "like", `%${req.query.filter}%`);
@@ -267,7 +267,7 @@ export const listUserMenuByRole = async (req, res) => {
 
     // Get mUser data for the user
     const mUser = await dbDMS('mUser')
-      .select('user_id')
+      .select('user_id', 'user_domain')
       .where({ 'user_empid': empid })
       .first();
 
@@ -286,10 +286,23 @@ export const listUserMenuByRole = async (req, res) => {
       on [a].[menu_id] = [b].[parent]
       union
       select distinct [menu_parent], [menu_icon], [menu_id], [menu_link], [menu_name] 
-      from [mMenu]
-      where menu_name = 'Departement'
-      and (select count(akses_id) from mAkses where akses_user = ?) > 0
-    `, [mUser.user_id]);
+      from [mMenu] m
+      where menu_link = 'divisi'
+      and menu_name = ?
+      /*
+      and (
+        select
+          count(a.dept_id)
+        from 
+          mDept a
+          inner join mAkses b
+            on a.dept_id = b.akses_dept
+        where
+          b.akses_user = ?
+          and a.dept_domain = m.menu_name
+      ) > 0
+      */
+    `, [mUser.user_domain, mUser.user_id]);
 
     // Show raw SQL query for parent menus
     // console.log('=== listUserMenuByRole - Get Parent Menus Query (UNION) ===');
@@ -345,8 +358,24 @@ export const listUserMenuByRole = async (req, res) => {
 
       // Get department children (if parent menu is "Departement")
       let deptMenus = [];
-      if (data.menu_name === 'Departement' || data.menu_link === 'departement') {
-        deptMenus = await dbDMS('mAkses as a')
+      if (data.menu_link === 'divisi') {
+        // deptMenus = await dbDMS('mAkses as a')
+        //   .select(
+        //     dbDMS.raw("CAST(b.dept_id as varchar) as menu_id"),
+        //     dbDMS.raw("b.dept_name as menu_name"),
+        //     dbDMS.raw("'dept/' + CAST(b.dept_seo as varchar) as menu_link"),
+        //     dbDMS.raw("'description' as menu_icon"),
+        //     dbDMS.raw("0 as menu_order"),
+        //     dbDMS.raw("? as menu_parent", [data.menu_id]),
+        //     dbDMS.raw("1 as prior")
+        //   )
+        //   .innerJoin('mDept as b', function () {
+        //     this.on(dbDMS.raw(`b.dept_id = a.akses_dept`));
+        //   })
+        //   .where('a.akses_user', mUser.user_id)
+        //   .whereNotNull('a.akses_dept');
+
+        const deptQuery = dbDMS('mDept as b')
           .select(
             dbDMS.raw("CAST(b.dept_id as varchar) as menu_id"),
             dbDMS.raw("b.dept_name as menu_name"),
@@ -356,11 +385,19 @@ export const listUserMenuByRole = async (req, res) => {
             dbDMS.raw("? as menu_parent", [data.menu_id]),
             dbDMS.raw("1 as prior")
           )
-          .innerJoin('mDept as b', function () {
-            this.on(dbDMS.raw(`b.dept_id = a.akses_dept`));
-          })
-          .where('a.akses_user', mUser.user_id)
-          .whereNotNull('a.akses_dept');
+          .innerJoin('mAkses as a', 'b.dept_id', 'a.akses_dept')
+          .where('b.dept_domain', data.menu_name)
+          .where('a.akses_user', mUser.user_id);
+
+        // Show raw SQL query for department menus
+        console.log('=== listUserMenuByRole - Get Department Menus Query ===');
+        console.log('Raw SQL Query:', deptQuery.toSQL().sql);
+        console.log('Query Bindings:', deptQuery.toSQL().bindings);
+        console.log('Parent Menu Name:', data.menu_name);
+        console.log('User ID:', mUser.user_id);
+        console.log('===========================================================');
+
+        deptMenus = await deptQuery;
       }
 
       // Combine sub-menus and departments, sort by prior then menu_order
@@ -545,8 +582,6 @@ export const getHrisByNIK = async (req, res) => {
         id = encryptedEmpid;
       }
     }
-
-    console.log('Data: ' + id);
 
     let hrisQuery = dbHris("ptl_hris as a")
       .select(
