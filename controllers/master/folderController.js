@@ -36,7 +36,7 @@ export const listFolder = async (req, res) => {
     } else {
       // Paginated list
       const sorting = req.query.descending === "true" ? "desc" : "asc";
-      const columnSort = req.query.sortBy === "desc" ? "f.folder_id desc" : `f.${req.query.sortBy} ${sorting}`;
+      const columnSort = req.query.sortBy === "desc" ? "f.folder_id desc" : `${req.query.sortBy} ${sorting}`;
       const page = Math.floor(req.query.page);
 
       const response = await dbDMS('mFolder as f')
@@ -69,6 +69,11 @@ export const listFolder = async (req, res) => {
           currentPage: page,
           isLengthAware: true,
         });
+
+      // Log SQL query
+      // console.log('=== listUser Query (No Pagination) ===');
+      // console.log(response.toSQL().toNative());
+      // console.log('=====================================');
 
       res.status(200).json(response);
     }
@@ -323,7 +328,7 @@ export const listSubFolder1 = async (req, res) => {
     } else {
       // Paginated list
       const sorting = req.query.descending === "true" ? "desc" : "asc";
-      const columnSort = req.query.sortBy === "desc" ? "sf1.subfolder1_id desc" : `sf1.${req.query.sortBy} ${sorting}`;
+      const columnSort = req.query.sortBy === "desc" ? "sf1.subfolder1_id desc" : `${req.query.sortBy} ${sorting}`;
       const page = Math.floor(req.query.page);
 
       const response = await dbDMS('mFolder1 as sf1')
@@ -533,7 +538,7 @@ export const listSubFolder2 = async (req, res) => {
     } else {
       // Paginated list
       const sorting = req.query.descending === "true" ? "desc" : "asc";
-      const columnSort = req.query.sortBy === "desc" ? "sf2.subfolder2_id desc" : `sf2.${req.query.sortBy} ${sorting}`;
+      const columnSort = req.query.sortBy === "desc" ? "sf2.subfolder2_id desc" : `${req.query.sortBy} ${sorting}`;
       const page = Math.floor(req.query.page);
 
       const response = await dbDMS('mFolder2 as sf2')
