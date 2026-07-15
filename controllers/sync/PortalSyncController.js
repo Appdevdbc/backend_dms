@@ -4,9 +4,17 @@ import { logger } from "../../helpers/logger.js";
 import { getErrorResponse } from "../../helpers/utils.js";
 
 // ─── Middleware: validate API key ─────────────────────────────────────────────
-export const validateApiKey = (keyEnv) => (req, res, next) => {
+export const validateRoleKey = (req, res, next) => {
+  const authHeader = req.headers["roleperappsdbc2026"];
+  if (!authHeader) {
+    return res.status(401).json({ error: "Unauthorized - Invalid or missing roleperappsdbc2026 header" });
+  }
+  next();
+};
+
+export const validateSyncKey = (req, res, next) => {
   const key = req.headers["x-api-key"];
-  if (!key || key !== process.env[keyEnv]) {
+  if (!key || key !== "userperappsdbc2026") {
     return res.status(401).json({ error: "Unauthorized - Invalid or missing x-api-key header" });
   }
   next();
@@ -57,7 +65,7 @@ export const syncUsers = async (req, res) => {
 
     processedEmpIds.push(empId);
     const roleId   = userData.role_id ?? null;
-    const isActive = userData.is_active !== undefined ? Boolean(userData.is_active) : true;
+    const isActive = !(userData.is_active === false || userData.is_active === "false" || userData.is_active === 0 || userData.is_active === "0");
 
     try {
       // Upsert user in users table
@@ -122,9 +130,9 @@ export const syncUsers = async (req, res) => {
         action = "SKIP";
       }
 
-      results.push(buildResult(appsId, syncType, triggeredBy, startedAt, userData, "SUCCESS", null, action, oldRole, oldIsActive));
+      results.push(buildResult(appsId, syncType, triggeredBy, startedAt, userData, "SUCCESS", null, action, oldRole, oldIsActive, isActive));
     } catch (err) {
-      results.push(buildResult(appsId, syncType, triggeredBy, startedAt, userData, "ERROR", err.message));
+      results.push(buildResult(appsId, syncType, triggeredBy, startedAt, userData, "ERROR", err.message, null, null, null, isActive));
     }
   }
 
@@ -166,7 +174,7 @@ export const syncUsers = async (req, res) => {
 };
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
-function buildResult(appsId, syncType, triggeredBy, startedAt, userData, status, errorMsg = null, action = null, oldRole = null, oldIsActive = null) {
+function buildResult(appsId, syncType, triggeredBy, startedAt, userData, status, errorMsg = null, action = null, oldRole = null, oldIsActive = null, isActive = true) {
   return {
     apps_id:         appsId,
     sync_type:       syncType,
@@ -180,7 +188,7 @@ function buildResult(appsId, syncType, triggeredBy, startedAt, userData, status,
     employee_email:  userData.employee_email ?? null,
     role_apps:       userData.role_apps ?? null,
     role_id:         userData.role_id ?? null,
-    is_active:       userData.is_active ?? true,
+    is_active:       isActive,
     old_role:        oldRole,
     old_is_active:   oldIsActive,
     action:          action ?? "ERROR",
