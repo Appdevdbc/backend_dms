@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import { db } from "../../config/db.js";
+import { dbDMS as db } from "../../config/db.js";
 import { logger } from "../../helpers/logger.js";
 import { getErrorResponse } from "../../helpers/utils.js";
 
