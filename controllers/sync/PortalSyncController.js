@@ -6,8 +6,10 @@ import { getErrorResponse } from "../../helpers/utils.js";
 // ─── Middleware: validate API key ─────────────────────────────────────────────
 export const validateRoleKey = (req, res, next) => {
   const authHeader = req.headers["roleperappsdbc2026"];
-  if (!authHeader) {
-    return res.status(401).json({ error: "Unauthorized - Invalid or missing roleperappsdbc2026 header" });
+  const apiKey = req.headers["x-api-key"];
+
+  if (!authHeader && apiKey !== "roleperappsdbc2026") {
+    return res.status(401).json({ error: "Unauthorized - Invalid or missing roleperappsdbc2026 or x-api-key header" });
   }
   next();
 };
