@@ -262,7 +262,14 @@ export const listUserMenuByRole = async (req, res) => {
 
     if (userGroups.length === 0) return res.status(200).json({ data: [] });
 
-    const groupIds = userGroups.map(g => g.user_role);
+    const roleMap = {
+      'rwx': '1',
+      'rw': '2',
+      'r': '3'
+    };
+    const groupIds = userGroups
+      .map(g => roleMap[g.user_role] || g.user_role)
+      .filter(id => id && !isNaN(id));
 
     // Get mUser data for the user
     const mUser = await dbDMS('mUser')
