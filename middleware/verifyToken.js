@@ -10,6 +10,7 @@ const PUBLIC_ROUTES = [
   { method: 'POST', path: '/login_portal' },
   { method: 'POST', path: '/refresh_token' },
   { method: 'GET', path: '/v1/roles' },
+  { method: 'GET', path: '/v1/bus' },
   { method: 'POST', path: '/v1/sync-users' }
 ];
 

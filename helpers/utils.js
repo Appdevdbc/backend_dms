@@ -136,6 +136,11 @@ export const encrypt = (message) => {
 }
 
 export const decrypt = (ciphertext) => {
+  // If ciphertext is already decrypted/plain text (e.g. employee ID, NIK, or numeric ID)
+  if (ciphertext && ciphertext.length < 20 && (/^[A-Za-z]+\d+$/.test(ciphertext) || /^\d+$/.test(ciphertext))) {
+    return ciphertext;
+  }
+
   try {
     if (!ciphertext || typeof ciphertext !== 'string') {
       throw new Error('Invalid ciphertext');

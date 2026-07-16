@@ -39,6 +39,26 @@ export const getRoles = async (req, res) => {
   }
 };
 
+// ─── GET /api/v1/bus ──────────────────────────────────────────────────────────
+export const getBUs = async (req, res) => {
+  try {
+    const plants = await db("mDivisi")
+      .select("divisi_iddiv", "divisi_name");
+
+    return res.status(200).json(
+      plants.map((p) => ({
+        id: String(p.divisi_iddiv),
+        bu_id: String(p.divisi_iddiv),
+        name: p.divisi_name,
+        is_active: "1",
+      }))
+    );
+  } catch (error) {
+    logger(error, "GET /api/v1/bus");
+    return res.status(500).json(getErrorResponse(error));
+  }
+};
+
 // ─── POST /api/v1/sync-users ──────────────────────────────────────────────────
 export const syncUsers = async (req, res) => {
   const users = req.body.users;
