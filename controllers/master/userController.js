@@ -40,7 +40,7 @@ export const listUser = async (req, res) => {
       // console.log('=====================================');
 
       const response = await responseQuery;
-      res.status(200).json(response);
+      return res.status(200).json(response);
     } else {
       const sorting = req.query.descending === "true" ? "desc" : "asc";
       const columnSort =
@@ -110,10 +110,9 @@ export const listUser = async (req, res) => {
         }
       }
 
-      res.status(200).json(response);
+      return res.status(200).json(response);
     }
   } catch (error) {
-    console.log(error)
     logger(error, 'GET /listUser', req.query);
     return res.status(406).json(getErrorResponse(error));
   }
@@ -359,43 +358,28 @@ export const listUserMenuByRole = async (req, res) => {
       // Get department children (if parent menu is "Departement")
       let deptMenus = [];
       if (data.menu_link === 'divisi') {
-        // deptMenus = await dbDMS('mAkses as a')
-        //   .select(
-        //     dbDMS.raw("CAST(b.dept_id as varchar) as menu_id"),
-        //     dbDMS.raw("b.dept_name as menu_name"),
-        //     dbDMS.raw("'dept/' + CAST(b.dept_seo as varchar) as menu_link"),
-        //     dbDMS.raw("'description' as menu_icon"),
-        //     dbDMS.raw("0 as menu_order"),
-        //     dbDMS.raw("? as menu_parent", [data.menu_id]),
-        //     dbDMS.raw("1 as prior")
-        //   )
-        //   .innerJoin('mDept as b', function () {
-        //     this.on(dbDMS.raw(`b.dept_id = a.akses_dept`));
-        //   })
-        //   .where('a.akses_user', mUser.user_id)
-        //   .whereNotNull('a.akses_dept');
-
-        const deptQuery = dbDMS('mDept as b')
-          .select(
-            dbDMS.raw("CAST(b.dept_id as varchar) as menu_id"),
-            dbDMS.raw("b.dept_name as menu_name"),
-            dbDMS.raw("'dept/' + CAST(b.dept_seo as varchar) as menu_link"),
-            dbDMS.raw("'description' as menu_icon"),
-            dbDMS.raw("0 as menu_order"),
-            dbDMS.raw("? as menu_parent", [data.menu_id]),
-            dbDMS.raw("1 as prior")
-          )
-          .innerJoin('mAkses as a', 'b.dept_id', 'a.akses_dept')
-          .where('b.dept_domain', data.menu_name)
-          .where('a.akses_user', mUser.user_id);
+        // Use raw SQL query as requested by user
+        const deptQuery = dbDMS.raw(`
+          select CAST(b.dept_id as varchar) as menu_id, 
+                 b.dept_name as menu_name, 
+                 'dept/' + CAST(b.dept_seo as varchar) as menu_link, 
+                 'description' as menu_icon, 
+                 0 as menu_order, 
+                 ? as menu_parent, 
+                 1 as prior 
+          from [mDept] as [b] 
+          inner join mAkses a on b.dept_id = a.akses_dept
+          where [b].[dept_domain] = ?
+          and a.akses_user = ?
+        `, [data.menu_id, data.menu_name, mUser.user_id]);
 
         // Show raw SQL query for department menus
-        console.log('=== listUserMenuByRole - Get Department Menus Query ===');
-        console.log('Raw SQL Query:', deptQuery.toSQL().sql);
-        console.log('Query Bindings:', deptQuery.toSQL().bindings);
-        console.log('Parent Menu Name:', data.menu_name);
-        console.log('User ID:', mUser.user_id);
-        console.log('===========================================================');
+        // console.log('=== listUserMenuByRole - Get Department Menus Query ===');
+        // console.log('Raw SQL Query:', deptQuery.sql);
+        // console.log('Query Bindings:', deptQuery.bindings);
+        // console.log('Parent Menu Name:', data.menu_name);
+        // console.log('User ID:', mUser.user_id);
+        // console.log('===========================================================');
 
         deptMenus = await deptQuery;
       }
