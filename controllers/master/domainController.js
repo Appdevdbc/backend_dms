@@ -714,13 +714,6 @@ export const getRoleAksesByPage = async (req, res) => {
     //   .where('a.akses_user', mUser.user_id)
     //   .where('b.menu_link', cleanPage);
 
-    const roleMap = {
-      'rwx': '1',
-      'rw': '2',
-      'r': '3'
-    };
-    const userRole = roleMap[mUser.user_role] || mUser.user_role;
-
     const accessQuery = dbDMS('menu_access as a')
       .select('a.*', 'b.menu_name', 'b.menu_link', 'b.menu_parent', 'b.menu_tipe')
       .innerJoin('group_aplikasi as c', function () {
@@ -729,7 +722,7 @@ export const getRoleAksesByPage = async (req, res) => {
       .innerJoin('mMenu as b', function () {
         this.on(dbDMS.raw(`b.menu_id = a.maccess_menuid`));
       })
-      .where('a.maccess_group_id', userRole)
+      .where('a.maccess_group_id', mUser.user_role)
       .where('b.menu_link', cleanPage);
     
     // Show raw SQL query
