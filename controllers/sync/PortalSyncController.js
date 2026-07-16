@@ -63,13 +63,7 @@ export const syncUsers = async (req, res) => {
     }
 
     processedEmpIds.push(empId);
-    const rawRoleId = userData.role_id ?? null;
-    const roleMap = {
-      'rwx': '1',
-      'rw': '2',
-      'r': '3'
-    };
-    const roleId   = roleMap[rawRoleId] || rawRoleId;
+    const roleId   = userData.role_id ?? null;
     const isActive = !(userData.is_active === false || userData.is_active === "false" || userData.is_active === 0 || userData.is_active === "0");
 
     try {
