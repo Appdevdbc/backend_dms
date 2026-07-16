@@ -28,11 +28,22 @@ export const listDept = async (req, res) => {
         .where('dept_domain', req.query.domain)
         .orderBy('d.dept_id', 'desc');
       
-      res.status(200).json(depts);
+      return res.status(200).json(depts);
     } else {
       // Paginated list
       const sorting = req.query.descending === "true" ? "desc" : "asc";
-      const columnSort = req.query.sortBy === "desc" ? "d.dept_id desc" : `d.${req.query.sortBy} ${sorting}`;
+      
+      // Handle sorting for TEXT column (dept_note)
+      let columnSort;
+      if (req.query.sortBy === "dept_note") {
+        // Convert TEXT to VARCHAR for sorting
+        columnSort = `CAST(d.dept_note AS VARCHAR(MAX)) ${sorting}`;
+      } else if (req.query.sortBy === "desc") {
+        columnSort = "d.dept_id desc";
+      } else {
+        columnSort = `${req.query.sortBy} ${sorting}`;
+      }
+      
       const page = Math.floor(req.query.page);
       
       const response = await dbDMS('mDept as d')
@@ -50,8 +61,8 @@ export const listDept = async (req, res) => {
         .where((query) => {
           if (req.query.filter != null) {
             query.orWhere("d.dept_name", "like", `%${req.query.filter}%`);
-            query.orWhere("d.dept_note", "like", `%${req.query.filter}%`);
             query.orWhere("div.divisi_name", "like", `%${req.query.filter}%`);
+            // Note: Cannot use LIKE on TEXT column directly, only on converted VARCHAR
           }
         })
         .orderByRaw(columnSort)
@@ -61,7 +72,7 @@ export const listDept = async (req, res) => {
           isLengthAware: true,
         });
       
-      res.status(200).json(response);
+      return res.status(200).json(response);
     }
   } catch (error) {
     logger(error, 'GET /listDept', req.query);
