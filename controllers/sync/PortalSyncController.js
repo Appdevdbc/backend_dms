@@ -186,17 +186,17 @@ export const syncUsers = async (req, res) => {
     total:    results.length,
   };
 
-  const finalResults = results.map((r) => ({
-    ...r,
-    sync_ended_at: endedAt.toISOString(),
-    duration_ms:   endedAt.diff(startedAt),
-    metadata: {
+  const finalResults = results.map((r) => {
+    r.sync_ended_at = endedAt.toISOString();
+    r.duration_ms   = endedAt.diff(startedAt);
+    r.metadata = {
       sync_summary: summary,
       total_users:  results.length,
       request_id:   requestId,
       changed_at:   endedAt.toISOString(),
-    },
-  }));
+    };
+    return r;
+  });
 
   return res.status(200).json(finalResults);
 };
@@ -206,22 +206,22 @@ function buildResult(appsId, syncType, triggeredBy, startedAt, userData, status,
   return {
     apps_id:         appsId,
     sync_type:       syncType,
-    sync_started_at: startedAt.toISOString(),
-    sync_ended_at:   null,
-    duration_ms:     null,
     triggered_by:    triggeredBy,
-    employee_id:     userData.employee_id ?? null,
     employee_nik:    userData.employee_nik ?? null,
+    employee_id:     userData.employee_id ?? null,
     employee_name:   userData.employee_name ?? null,
     employee_email:  userData.employee_email ?? null,
-    role_apps:       userData.role_apps ?? null,
+    role_apps:       userData.role_apps ?? "",
     role_id:         userData.role_id ?? null,
     is_active:       isActive,
-    old_role:        oldRole,
-    old_is_active:   oldIsActive,
+    old_role:        oldRole ?? "",
+    old_is_active:   oldIsActive ?? true,
     action:          action ?? "ERROR",
     status,
     error_message:   errorMsg,
+    sync_started_at: startedAt.toISOString(),
+    sync_ended_at:   null,
+    duration_ms:     null,
     metadata:        null,
   };
 }
