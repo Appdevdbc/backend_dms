@@ -85,7 +85,20 @@ export const syncUsers = async (req, res) => {
     }
 
     processedEmpIds.push(empId);
-    const roleId   = userData.role_id ?? null;
+    if (!userData.domain || !Array.isArray(userData.domain) || userData.domain.length === 0) {
+      results.push(buildResult(appsId, syncType, triggeredBy, startedAt, userData, "ERROR", "Harap set domain terlebih dahulu"));
+      continue;
+    }
+
+    const firstDomain = userData.domain[0];
+    const finalDivId = firstDomain.bu_id ?? null;
+    const finalDomain = firstDomain.bu_name ?? null;
+    let finalRoleId = userData.role_id ?? null;
+
+    if (firstDomain.roles && Array.isArray(firstDomain.roles) && firstDomain.roles.length > 0) {
+      finalRoleId = firstDomain.roles[0].role_id ?? finalRoleId;
+    }
+
     const isActive = !(userData.is_active === false || userData.is_active === "false" || userData.is_active === 0 || userData.is_active === "0");
 
     try {
@@ -103,46 +116,48 @@ export const syncUsers = async (req, res) => {
           action = "SKIP";
         }
       } else if (!user) {
-        // Look up employee info from portal
+        // Look up employee info from portal to fill other missing fields (like email, deptId)
         const hris = await dbHris("ptl_hris")
-          .select("map_div_pk", "map_dept_pk", "user_email")
+          .select("map_dept_pk", "user_email")
           .where("Emp_Id", empId)
           .where("user_active", "Active")
           .first();
 
-        let divId = hris?.map_div_pk ?? 0;
         let deptId = hris?.map_dept_pk ?? 0;
-        let domainName = "";
-
-        if (divId) {
-          const mDivisi = await db("mDivisi")
-            .select("divisi_domain")
-            .where("divisi_iddiv", divId)
-            .first();
-          domainName = mDivisi?.divisi_domain ?? "";
-        }
+        let email = userData.employee_email ?? hris?.user_email ?? null;
 
         await db("mUser").insert({
           user_empid:  empId,
           user_nik:    userData.employee_nik ?? empId,
           user_name:   userData.employee_name ?? "",
-          user_email:  userData.employee_email ?? hris?.user_email ?? null,
-          user_iddiv:  divId,
+          user_email:  email,
+          user_iddiv:  finalDivId || 0,
           user_iddept: deptId,
-          user_domain: domainName,
-          user_role:   roleId,
+          user_domain: finalDomain || "",
+          user_role:   finalRoleId,
           user_pass:   "aaa"
         });
         action = "INSERT";
-      } else if (user.user_role != roleId) {
-        await db("mUser")
-          .where("user_empid", empId)
-          .update({
-            user_role: roleId
-          });
-        action = "UPDATE";
       } else {
-        action = "SKIP";
+        const updates = {};
+        if (finalRoleId !== null && user.user_role != finalRoleId) {
+          updates.user_role = finalRoleId;
+        }
+        if (finalDivId !== null && user.user_iddiv != finalDivId) {
+          updates.user_iddiv = finalDivId;
+        }
+        if (finalDomain !== null && user.user_domain != finalDomain) {
+          updates.user_domain = finalDomain;
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await db("mUser")
+            .where("user_empid", empId)
+            .update(updates);
+          action = "UPDATE";
+        } else {
+          action = "SKIP";
+        }
       }
 
       results.push(buildResult(appsId, syncType, triggeredBy, startedAt, userData, "SUCCESS", null, action, oldRole, oldIsActive, isActive));
@@ -171,17 +186,17 @@ export const syncUsers = async (req, res) => {
     total:    results.length,
   };
 
-  const finalResults = results.map((r) => ({
-    ...r,
-    sync_ended_at: endedAt.toISOString(),
-    duration_ms:   endedAt.diff(startedAt),
-    metadata: {
+  const finalResults = results.map((r) => {
+    r.sync_ended_at = endedAt.toISOString();
+    r.duration_ms   = endedAt.diff(startedAt);
+    r.metadata = {
       sync_summary: summary,
       total_users:  results.length,
       request_id:   requestId,
       changed_at:   endedAt.toISOString(),
-    },
-  }));
+    };
+    return r;
+  });
 
   return res.status(200).json(finalResults);
 };
@@ -191,22 +206,22 @@ function buildResult(appsId, syncType, triggeredBy, startedAt, userData, status,
   return {
     apps_id:         appsId,
     sync_type:       syncType,
-    sync_started_at: startedAt.toISOString(),
-    sync_ended_at:   null,
-    duration_ms:     null,
     triggered_by:    triggeredBy,
-    employee_id:     userData.employee_id ?? null,
     employee_nik:    userData.employee_nik ?? null,
+    employee_id:     userData.employee_id ?? null,
     employee_name:   userData.employee_name ?? null,
     employee_email:  userData.employee_email ?? null,
-    role_apps:       userData.role_apps ?? null,
+    role_apps:       userData.role_apps ?? "",
     role_id:         userData.role_id ?? null,
     is_active:       isActive,
-    old_role:        oldRole,
-    old_is_active:   oldIsActive,
+    old_role:        oldRole ?? "",
+    old_is_active:   oldIsActive ?? true,
     action:          action ?? "ERROR",
     status,
     error_message:   errorMsg,
+    sync_started_at: startedAt.toISOString(),
+    sync_ended_at:   null,
+    duration_ms:     null,
     metadata:        null,
   };
 }
