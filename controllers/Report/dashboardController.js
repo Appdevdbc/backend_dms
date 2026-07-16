@@ -1,6 +1,6 @@
 import { dbDMS } from "../../config/db.js";
 import * as dotenv from 'dotenv';
-import { getErrorResponse } from "../../helpers/utils.js";
+import { decrypt, getErrorResponse } from "../../helpers/utils.js";
 import { logger } from "../../helpers/logger.js";
 dotenv.config();
 
@@ -72,12 +72,18 @@ export const getChartData = async (req, res) => {
     }] */
   // #swagger.description = 'Get chart data for documents per department by folder type'
   try {
+    const mUser = await dbDMS("mUser")
+      .select("user_iddiv")
+      .where("user_empid", decrypt(req.query.empid))
+      .first();
+
     const userDomain = req.query.domain || 'DMS';
 
     // Get all unique folder names for this domain
     const folders = await dbDMS("mFolder")
       .select("folder_name")
-      .where("folder_domain", userDomain)
+      .where("folder_iddiv", mUser.user_iddiv)
+      // .where("folder_domain", userDomain)
       // .whereNull("deleted_at")
       .groupBy("folder_name")
       .orderBy("folder_name");
