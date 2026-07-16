@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import { dbDMS as db } from "../../config/db.js";
+import { dbDMS as db, dbHris } from "../../config/db.js";
 import { logger } from "../../helpers/logger.js";
 import { getErrorResponse } from "../../helpers/utils.js";
 
@@ -50,7 +50,6 @@ export const syncUsers = async (req, res) => {
   const syncType    = req.body.sync_type ?? "MANUAL";
   const triggeredBy = req.body.triggered_by ?? "SYSTEM";
   const nonAktifLain = req.body.non_aktif_user_lain === true || req.body.non_aktif_user_lain === "true";
-  const appCode     = process.env.APP_FLAG ?? "dbc-wjs-apps";
   const startedAt   = dayjs();
   const results     = [];
   const processedEmpIds = [];
@@ -68,62 +67,56 @@ export const syncUsers = async (req, res) => {
     const isActive = !(userData.is_active === false || userData.is_active === "false" || userData.is_active === 0 || userData.is_active === "0");
 
     try {
-      // Upsert user in users table
-      let user = await db("users").where("emp_id", empId).first();
-      if (!user) {
-        const maxId = (await db("users").max("id as maxId").first())?.maxId ?? 0;
-        await db("users").insert({
-          id:         maxId + 1,
-          emp_id:     empId,
-          name:       userData.employee_nik ?? empId,
-          first_name: userData.employee_name ?? "",
-          last_name:  "",
-          email:      userData.employee_email ?? null,
-          password:   "",
-          created_at: dayjs().format("YYYY-MM-DD HH:mm:ss"),
-          updated_at: dayjs().format("YYYY-MM-DD HH:mm:ss"),
-        });
-        user = await db("users").where("emp_id", empId).first();
-      }
-
-      // Check users_aplikasi record
-      const existing = await db("users_aplikasi")
-        .where("usrapp_usr_id", user.id)
-        .where("usrapp_app_id", appCode)
-        .first();
-
-      const oldRole     = existing?.usrapp_grp_id ?? null;
-      const oldIsActive = existing ? true : null;
+      // Upsert user in mUser table
+      let user = await db("mUser").where("user_empid", empId).first();
+      const oldRole     = user?.user_role ?? null;
+      const oldIsActive = user ? true : null;
       let action;
 
       if (!isActive) {
-        if (existing) {
-          await db("users_aplikasi")
-            .where("usrapp_usr_id", user.id)
-            .where("usrapp_app_id", appCode)
-            .delete();
+        if (user) {
+          await db("mUser").where("user_empid", empId).delete();
           action = "UPDATE";
         } else {
           action = "SKIP";
         }
-      } else if (!existing) {
-        await db("users_aplikasi").insert({
-          usrapp_usr_id:     user.id,
-          usrapp_app_id:     appCode,
-          usrapp_grp_id:     roleId,
-          usrapp_created_by: null,
-          created_at:        dayjs().format("YYYY-MM-DD HH:mm:ss"),
-          updated_at:        dayjs().format("YYYY-MM-DD HH:mm:ss"),
+      } else if (!user) {
+        // Look up employee info from portal
+        const hris = await dbHris("ptl_hris")
+          .select("map_div_pk", "map_dept_pk", "user_email")
+          .where("Emp_Id", empId)
+          .where("user_active", "Active")
+          .first();
+
+        let divId = hris?.map_div_pk ?? 0;
+        let deptId = hris?.map_dept_pk ?? 0;
+        let domainName = "";
+
+        if (divId) {
+          const mDivisi = await db("mDivisi")
+            .select("divisi_domain")
+            .where("divisi_iddiv", divId)
+            .first();
+          domainName = mDivisi?.divisi_domain ?? "";
+        }
+
+        await db("mUser").insert({
+          user_empid:  empId,
+          user_nik:    userData.employee_nik ?? empId,
+          user_name:   userData.employee_name ?? "",
+          user_email:  userData.employee_email ?? hris?.user_email ?? null,
+          user_iddiv:  divId,
+          user_iddept: deptId,
+          user_domain: domainName,
+          user_role:   roleId,
+          user_pass:   "aaa"
         });
         action = "INSERT";
-      } else if (existing.usrapp_grp_id != roleId) {
-        await db("users_aplikasi")
-          .where("usrapp_usr_id", user.id)
-          .where("usrapp_app_id", appCode)
+      } else if (user.user_role != roleId) {
+        await db("mUser")
+          .where("user_empid", empId)
           .update({
-            usrapp_grp_id:     roleId,
-            usrapp_updated_by: null,
-            updated_at:        dayjs().format("YYYY-MM-DD HH:mm:ss"),
+            user_role: roleId
           });
         action = "UPDATE";
       } else {
@@ -138,10 +131,8 @@ export const syncUsers = async (req, res) => {
 
   // Deactivate users not in payload if requested
   if (nonAktifLain && processedEmpIds.length > 0) {
-    const keepIds = await db("users").whereIn("emp_id", processedEmpIds).pluck("id");
-    await db("users_aplikasi")
-      .where("usrapp_app_id", appCode)
-      .whereNotIn("usrapp_usr_id", keepIds)
+    await db("mUser")
+      .whereNotIn("user_empid", processedEmpIds)
       .delete();
   }
 
