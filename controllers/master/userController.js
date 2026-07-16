@@ -371,6 +371,7 @@ export const listUserMenuByRole = async (req, res) => {
           inner join mAkses a on b.dept_id = a.akses_dept
           where [b].[dept_domain] = ?
           and a.akses_user = ?
+          order by b.dept_name
         `, [data.menu_id, data.menu_name, mUser.user_id]);
 
         // Show raw SQL query for department menus
