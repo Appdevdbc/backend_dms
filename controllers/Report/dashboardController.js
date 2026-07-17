@@ -15,6 +15,11 @@ export const getDashboardStats = async (req, res) => {
     }] */
   // #swagger.description = 'Get dashboard statistics (Prosedur, IK, Form totals)'
   try {
+    const mUser = await dbDMS("mUser")
+      .select("user_iddiv")
+      .where("user_empid", decrypt(req.query.empid))
+      .first();
+
     const userDomain = req.query.domain || 'DMS';
 
     // Get total PROSEDUR documents
@@ -22,7 +27,8 @@ export const getDashboardStats = async (req, res) => {
       .join("mFolder", "mFolder.folder_id", "mContent.content_idfolder")
       .where("mFolder.folder_name", "PROSEDUR")
       .where("mContent.content_active", 1)
-      .where("mContent.content_domain", userDomain)
+      // .where("mContent.content_domain", userDomain)
+      .where("mContent.content_iddiv", mUser.user_iddiv)
       // .whereNull("mContent.deleted_at")
       .count("mContent.content_id as total")
       .first();
@@ -32,7 +38,8 @@ export const getDashboardStats = async (req, res) => {
       .join("mFolder", "mFolder.folder_id", "mContent.content_idfolder")
       .where("mFolder.folder_name", "INSTRUKSI KERJA")
       .where("mContent.content_active", 1)
-      .where("mContent.content_domain", userDomain)
+      // .where("mContent.content_domain", userDomain)
+      .where("mContent.content_iddiv", mUser.user_iddiv)
       // .whereNull("mContent.deleted_at")
       .count("mContent.content_id as total")
       .first();
@@ -42,7 +49,8 @@ export const getDashboardStats = async (req, res) => {
       .join("mFolder", "mFolder.folder_id", "mContent.content_idfolder")
       .where("mFolder.folder_name", "FORMULIR")
       .where("mContent.content_active", 1)
-      .where("mContent.content_domain", userDomain)
+      // .where("mContent.content_domain", userDomain)
+      .where("mContent.content_iddiv", mUser.user_iddiv)
       // .whereNull("mContent.deleted_at")
       .count("mContent.content_id as total")
       .first();
@@ -91,6 +99,7 @@ export const getChartData = async (req, res) => {
     // Get all departments
     const departments = await dbDMS("mDept")
       .select("dept_id", "dept_name")
+      .where("dept_divisi", mUser.user_iddiv)
       // .whereNull("deleted_at")
       .orderBy("dept_name");
 
