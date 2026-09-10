@@ -40,7 +40,7 @@ export const getHistoryDocument = async (req, res) => {
     } else {
       // Paginated list
       const sorting = req.query.descending === "true" ? "desc" : "asc";
-      const columnSort = req.query.sortBy === "desc" ? "c.content_no asc" : `c.${req.query.sortBy} ${sorting}`;
+      const columnSort = req.query.sortBy === "desc" ? "c.content_no asc" : `${req.query.sortBy} ${sorting}`;
       const page = Math.floor(req.query.page);
       
       const response = await dbDMS('mContent as c')

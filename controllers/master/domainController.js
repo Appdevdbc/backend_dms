@@ -705,12 +705,24 @@ export const getRoleAksesByPage = async (req, res) => {
     const cleanPage = page.replace('/', '');
     
     // Build query for debugging
-    const accessQuery = dbDMS('mAkses as a')
+
+    // const accessQuery = dbDMS('mAkses as a')
+    //   .select('a.*', 'b.menu_name', 'b.menu_link', 'b.menu_parent', 'b.menu_tipe')
+    //   .innerJoin('mMenu as b', function () {
+    //     this.on(dbDMS.raw(`b.menu_id = case when b.menu_tipe = 'main' then a.akses_main_menu else a.akses_sub_menu end`));
+    //   })
+    //   .where('a.akses_user', mUser.user_id)
+    //   .where('b.menu_link', cleanPage);
+
+    const accessQuery = dbDMS('menu_access as a')
       .select('a.*', 'b.menu_name', 'b.menu_link', 'b.menu_parent', 'b.menu_tipe')
-      .innerJoin('mMenu as b', function () {
-        this.on(dbDMS.raw(`b.menu_id = case when b.menu_tipe = 'main' then a.akses_main_menu else a.akses_sub_menu end`));
+      .innerJoin('group_aplikasi as c', function () {
+        this.on(dbDMS.raw(`c.grp_id = a.maccess_group_id`));
       })
-      .where('a.akses_user', mUser.user_id)
+      .innerJoin('mMenu as b', function () {
+        this.on(dbDMS.raw(`b.menu_id = a.maccess_menuid`));
+      })
+      .where('a.maccess_group_id', mUser.user_role)
       .where('b.menu_link', cleanPage);
     
     // Show raw SQL query
