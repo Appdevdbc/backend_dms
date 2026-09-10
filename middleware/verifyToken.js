@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();  
 import jwt from "jsonwebtoken";  
 import { dbDMS, dbHris } from "../config/db.js";  
+import { resolveToken } from "../helpers/auth/cookie.helper.js";
 
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = [
@@ -31,14 +32,13 @@ export const cekToken = async (req, res, next) => {
       return next();  
     }
     
-    // Protected route - verify token
-    let token;  
-
-    if (req.headers['accept'] === 'text/event-stream') {   
-      token = req.query.token;
-    } else {  
-      token = req.headers.authorization?.split(' ')[1];  
-    }  
+    // Protected route - resolve token dari cookie / SSE query / Bearer header
+    const token = resolveToken({
+      cookies: req.cookies,
+      accept: req.headers['accept'],
+      authorization: req.headers.authorization,
+      query: req.query,
+    });
 
     if (!token) return res.status(401).json({ message: "Invalid Token" });
 

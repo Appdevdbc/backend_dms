@@ -5,6 +5,7 @@ import router from "./router/index.js";
 import swaggerUi from "swagger-ui-express";
 import * as dotenv from 'dotenv'; 
 dotenv.config()
+import cookieParser from "cookie-parser";
 import { cekToken } from "./middleware/verifyToken.js";
 import sqlSanitizeMiddleware from "./middleware/sanitizeRequest.js"; 
 import { executeCron } from "./middleware/scheduler.js";
@@ -40,8 +41,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use(express.static(path.join(__dirname, 'file')));
 
+// CORS: credentials WAJIB true agar cookie httpOnly terkirim.
+// Origin WAJIB eksplisit (dilarang wildcard '*' bersama credentials).
 if (process.env.ENVIRONMENT === 'UAT' || process.env.ENVIRONMENT === 'PRODUCTION') {
-  app.use(cors({ 
+  app.use(cors({
+    credentials: true,
     origin: (origin, callback) => {
       if (!origin || /\.dbc\.co\.id$/.test(origin)) {
         console.log(`CORS allowed for origin: ${origin}`);
@@ -53,7 +57,25 @@ if (process.env.ENVIRONMENT === 'UAT' || process.env.ENVIRONMENT === 'PRODUCTION
     }
   }));
 } else {
-  app.use(cors());
+  // Development: daftar origin eksplisit (FE dev server port 7060)
+  const devOrigins = [
+    process.env.FRONTEND_URL,
+    'http://localhost:7060',
+    'http://127.0.0.1:7060',
+  ].filter(Boolean);
+
+  app.use(cors({
+    credentials: true,
+    origin: (origin, callback) => {
+      // izinkan request tanpa origin (curl/Postman) dan origin dev yang terdaftar
+      if (!origin || devOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.log(`CORS blocked for origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    }
+  }));
 }
 
 executeCron();
@@ -61,6 +83,7 @@ executeCron();
 //app.options('*', cors());
 import swaggerDocument from "./swagger-output.json" assert { type: "json" };
 app.use("/doc", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use(cookieParser());
 app.use(cekToken);
 app.use(sqlSanitizeMiddleware);
 app.use("/", router);
